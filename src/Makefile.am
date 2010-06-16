@@ -73,6 +73,7 @@ base_SOURCES = \
 	base/fm-app-info.c \
 	base/fm-thumbnailer.c \
 	base/fm-marshal.c \
+	base/fm-file-search.c \
 	$(NULL)
 
 job_SOURCES = \
@@ -162,6 +163,7 @@ libfminclude_HEADERS = \
 	base/fm-app-info.h \
 	base/fm-thumbnailer.h \
 	base/fm-marshal.h \
+	base/fm-file-search.h \
 	job/fm-job.h \
 	job/fm-simple-job.h \
 	job/fm-dir-list-job.h \
