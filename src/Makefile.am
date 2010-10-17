@@ -39,6 +39,7 @@ udisks_SOURCES=
 endif
 
 base_SOURCES = \
+	base/fm-app.c \
 	base/fm-config.c \
 	base/fm-list.c \
 	base/fm-path.c \
@@ -118,6 +119,7 @@ libfm_gtk_SOURCES = \
 libfmincludedir = $(includedir)/libfm/libfm
 libfminclude_HEADERS = \
 	fm.h \
+	base/fm-app.h \
 	base/fm-config.h \
 	base/fm-list.h \
 	base/fm-path.h \

@@ -57,6 +57,7 @@ gboolean fm_init(FmConfig* config)
     _fm_monitor_init();
     _fm_file_info_init();
     _fm_archiver_init();
+    _fm_app_init();
 
 #ifdef USE_UDISKS
     _fm_udisks_init();
@@ -77,6 +78,7 @@ void fm_finalize()
     _fm_icon_finalize();
     _fm_monitor_finalize();
     _fm_archiver_finalize();
+    _fm_app_finalize();
 
 #ifdef USE_UDISKS
     _fm_udisks_finalize();
