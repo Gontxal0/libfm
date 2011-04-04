@@ -207,6 +207,7 @@ static void clear_completion(FmPathEntryPrivate* priv)
         if(priv->cancellable)
         {
             g_cancellable_cancel(priv->cancellable);
+            g_object_unref(priv->cancellable);
             priv->cancellable = NULL;
         }
         /* clear current model */
