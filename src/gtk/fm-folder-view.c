@@ -77,6 +77,7 @@ static void on_small_icon_size_changed(FmConfig* cfg, FmFolderView* fv);
 static void on_thumbnail_size_changed(FmConfig* cfg, FmFolderView* fv);
 
 static void cancel_pending_row_activated(FmFolderView* fv);
+static void cancel_pending_timed_select(FmFolderView* fv);
 
 static void fm_folder_view_class_init(FmFolderViewClass *klass)
 {
@@ -283,24 +284,24 @@ static void on_tree_view_row_activated(GtkTreeView* tv, GtkTreePath* path, GtkTr
     }
 }
 
-static void fm_folder_view_init(FmFolderView *self)
+static void fm_folder_view_init(FmFolderView *fv)
 {
-    gtk_scrolled_window_set_hadjustment((GtkScrolledWindow*)self, NULL);
-    gtk_scrolled_window_set_vadjustment((GtkScrolledWindow*)self, NULL);
-    gtk_scrolled_window_set_policy((GtkScrolledWindow*)self, GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_hadjustment((GtkScrolledWindow*)fv, NULL);
+    gtk_scrolled_window_set_vadjustment((GtkScrolledWindow*)fv, NULL);
+    gtk_scrolled_window_set_policy((GtkScrolledWindow*)fv, GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
     /* config change notifications */
-    g_signal_connect(fm_config, "changed::single_click", G_CALLBACK(on_single_click_changed), self);
+    g_signal_connect(fm_config, "changed::single_click", G_CALLBACK(on_single_click_changed), fv);
 
     /* dnd support */
-    self->dnd_src = fm_dnd_src_new(NULL);
-    g_signal_connect(self->dnd_src, "data-get", G_CALLBACK(on_dnd_src_data_get), self);
+    fv->dnd_src = fm_dnd_src_new(NULL);
+    g_signal_connect(fv->dnd_src, "data-get", G_CALLBACK(on_dnd_src_data_get), fv);
 
-    self->dnd_dest = fm_dnd_dest_new(NULL);
+    fv->dnd_dest = fm_dnd_dest_new(NULL);
 
-    self->mode = -1;
-    self->sort_type = GTK_SORT_ASCENDING;
-    self->sort_by = COL_FILE_NAME;
+    fv->mode = -1;
+    fv->sort_type = GTK_SORT_ASCENDING;
+    fv->sort_by = COL_FILE_NAME;
 }
 
 
@@ -314,30 +315,31 @@ GtkWidget* fm_folder_view_new(FmFolderViewMode mode)
 
 static void fm_folder_view_finalize(GObject *object)
 {
-    FmFolderView *self;
+    FmFolderView *fv;
 
     g_return_if_fail(object != NULL);
     g_return_if_fail(IS_FM_FOLDER_VIEW(object));
 
-    self = FM_FOLDER_VIEW(object);
-    if(self->folder)
+    fv = FM_FOLDER_VIEW(object);
+    if(fv->folder)
     {
-        g_object_unref(self->folder);
-        if( self->model )
-            g_object_unref(self->model);
+        g_object_unref(fv->folder);
+        if( fv->model )
+            g_object_unref(fv->model);
     }
-    g_object_unref(self->dnd_src);
-    g_object_unref(self->dnd_dest);
+    g_object_unref(fv->dnd_src);
+    g_object_unref(fv->dnd_dest);
 
-    if(self->cwd)
-        fm_path_unref(self->cwd);
+    if(fv->cwd)
+        fm_path_unref(fv->cwd);
 
     g_signal_handlers_disconnect_by_func(fm_config, on_single_click_changed, object);
 
-    cancel_pending_row_activated(self);
+    cancel_pending_row_activated(fv);
+    cancel_pending_timed_select(fv);
 
-    if(self->icon_size_changed_handler)
-        g_signal_handler_disconnect(fm_config, self->icon_size_changed_handler);
+    if(fv->icon_size_changed_handler)
+        g_signal_handler_disconnect(fm_config, fv->icon_size_changed_handler);
 
     if (G_OBJECT_CLASS(fm_folder_view_parent_class)->finalize)
         (* G_OBJECT_CLASS(fm_folder_view_parent_class)->finalize)(object);
@@ -893,6 +895,8 @@ gboolean fm_folder_view_chdir(FmFolderView* fv, FmPath* path)
     FmFolderModel* model;
     FmFolder* folder;
 
+    cancel_pending_timed_select(fv);
+
     if(fv->folder)
     {
         g_signal_handlers_disconnect_by_func(fv->folder, on_folder_loaded, fv);
@@ -1018,6 +1022,9 @@ void on_sel_changed(GObject* obj, FmFolderView* fv)
     g_signal_emit(fv, signals[SEL_CHANGED], 0, files);
     if(files)
         fm_list_unref(files);
+
+    if(fv->timed_select_timeout)
+        cancel_pending_timed_select(fv);
 }
 
 void on_sort_col_changed(GtkTreeSortable* sortable, FmFolderView* fv)
@@ -1246,4 +1253,65 @@ static void cancel_pending_row_activated(FmFolderView* fv)
         gtk_tree_row_reference_free(fv->activated_row_ref);
         fv->activated_row_ref = NULL;
     }
+}
+
+static void cancel_pending_timed_select(FmFolderView* fv)
+{
+    if(fv->timed_select_timeout)
+    {
+        g_source_remove(fv->timed_select_timeout);
+        fv->timed_select_timeout = 0;
+        fm_list_unref(fv->timed_select_paths);
+        fv->timed_select_paths = NULL;
+    }
+}
+
+/*
+ * fm_folder_view_timed_select_file_path
+ * @fv: folder view
+ * @path: the path of file to select in the folder view
+ * @interval: time interval to wait before trying to select the file, in milliseconds.
+ * Refer to fm_folder_view_timed_select_file_paths()
+ */
+void fm_folder_view_timed_select_file_path(FmFolderView* fv, FmPath* path, guint interval)
+{
+    FmPathList* paths = fm_path_list_new();
+    fm_list_push_tail(paths, path);
+    fm_folder_view_timed_select_file_paths(fv, paths, interval);
+    fm_list_unref(paths);
+}
+
+static gboolean on_timed_select_paths_timeout(FmFolderView* fv)
+{
+    fv->timed_select_timeout = 0; /* this is required for on_sel_change() */
+    fm_folder_view_select_file_paths(fv, fv->timed_select_paths);
+    fm_list_unref(fv->timed_select_paths);
+    fv->timed_select_paths = NULL;
+    return FALSE;
+}
+
+/*
+ * fm_folder_view_timed_select_file_paths
+ * @fv: folder view
+ * @paths: the paths of files to select in the folder view
+ * @interval: time interval to wait before trying to select the file, in milliseconds.
+ *
+ * This is used to select a file in the folder view after a period of time.
+ * It's mainly used to implement new file creation. When a new file is created on
+ * disk, the file monitor can detect this, and then update the folder view.
+ * However, there's a time delay before the file really appears in the view.
+ * So upon file creation, it's not possible to make the file selected since
+ * it's not yet in the folder view. With this function, we can wait for seconds,
+ * then try to select the file.
+ *
+ * Subsequent calls to this function may cancel previous pending selections.
+ * Also if the user changes selection or changes to another dir, previously
+ * pending selection will be cancelled.
+ */
+void fm_folder_view_timed_select_file_paths(FmFolderView* fv, FmPathList* paths, guint interval)
+{
+    cancel_pending_timed_select(fv);
+    fv->timed_select_timeout = g_timeout_add(interval,
+                                    (GSourceFunc)on_timed_select_paths_timeout, fv);
+    fv->timed_select_paths = fm_list_ref(paths);
 }
