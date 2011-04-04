@@ -461,6 +461,10 @@ static gboolean fm_path_entry_suffix_append_idle(gpointer user_data)
     return FALSE;
 }
 
+/* This function is taken from gtk/gtkentrycompletion.c
+ * gtk_entry_completion_compute_prefix()
+ * Copyright (C) 2003  Kristian Rietveld  <kris@gtk.org>
+ */
 static char* fm_path_entry_find_common_suffix(FmPathEntry *entry)
 {
     FmPathEntryPrivate *priv = FM_PATH_ENTRY_GET_PRIVATE(entry);
