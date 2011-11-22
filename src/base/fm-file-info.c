@@ -416,6 +416,11 @@ FmMimeType* fm_file_info_get_mime_type( FmFileInfo* fi )
     return fi->type ? fm_mime_type_ref(fi->type) : NULL;
 }
 
+FmIcon* fm_file_info_get_icon(FmFileInfo* fi)
+{
+	return fi->icon ? fm_icon_ref(fi->icon) : NULL;
+}
+
 mode_t fm_file_info_get_mode( FmFileInfo* fi )
 {
     return fi->mode;

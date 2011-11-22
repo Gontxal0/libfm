@@ -6,6 +6,8 @@ NULL=
 # current dir needs to be built before tests
 SUBDIRS= \
 	actions \
+	jobs \
+	gtk/ui \
 	. \
 	tests \
 	$(NULL)
@@ -15,7 +17,9 @@ AM_CPPFLAGS = \
 	-I$(srcdir)/base \
 	-I$(srcdir)/actions \
 	-I$(srcdir)/job \
+	-I$(srcdir)/jobs \
 	-I$(srcdir)/gtk \
+	-I$(srcdir)/gtk/ui \
 	-I$(srcdir)/demo \
 	-DPACKAGE_DATA_DIR=\""$(datadir)/libfm"\" \
 	-DPACKAGE_UI_DIR=\""$(datadir)/libfm/ui"\" \
@@ -225,6 +229,7 @@ libfm_la_LIBADD = \
 	$(DBUS_LIBS) \
 	$(INTLLIBS) \
 	$(srcdir)/actions/libfmactions.la \
+	$(srcdir)/jobs/libfmjobs.la \
 	$(NULL)
 
 libfm_la_LDFLAGS = \
@@ -246,6 +251,7 @@ libfm_gtk_la_CFLAGS = \
 	-I$(srcdir) \
 	-I$(srcdir)/base \
 	-I$(srcdir)/job \
+	-I$(srcdir)/gtk \
 	-Werror-implicit-function-declaration
 
 libfm_gtk_la_LIBADD = \
@@ -255,6 +261,7 @@ libfm_gtk_la_LIBADD = \
 	$(MENU_CACHE_LIBS) \
 	$(INTLLIBS) \
 	libfm.la \
+	$(srcdir)/gtk/ui/libfmgtkui.la \
 	$(NULL)
 
 libfm_gtk_la_LDFLAGS = \

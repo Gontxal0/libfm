@@ -4,7 +4,13 @@ namespace Fm {
 	[Compact]
 	[CCode (ref_function = "fm_path_ref", unref_function = "fm_path_unref", cname = "FmPath", cprefix = "fm_path_", cheader_filename = "fm-path.h")]
 	public class Path {
-		public Path();
+		public Path.for_str(string str);
+		public Path.for_path(string path);
+		public Path.for_uri(string uri);
+		public Path.for_gfile(GLib.File file);
+		public Path.child(Path parent, string name);
+		public Path.child_len(Path parent, string name, int len);
+		public Path.relative(Path parent, string relative);
 
 		public unowned Path get_parent();
 		public unowned string get_basename();
@@ -33,6 +39,62 @@ namespace Fm {
 	}
 
 	[Compact]
+	[CCode (ref_function = "fm_list_ref", unref_function = "fm_list_unref", cname = "FmList", cprefix = "fm_list_", cheader_filename = "fm-path.h")]
+	public class PathList {
+
+		[CCode (cname = "fm_path_list_new", cheader_filename = "fm-path.h")]
+		public PathList();
+
+		public void clear();
+		public bool is_empty();
+		public int get_length();
+
+		public void reverse();
+		// public void @foreach(Func<Path> data);
+		public unowned GLib.List<Path> find(Path data);
+		public unowned GLib.List<Path> find_custom(Path data, GLib.CompareFunc<Path> func);
+		public void sort(GLib.CompareDataFunc<Path> func);
+
+		public void push_head(Path data);
+		public void push_tail(Path data);
+		public void push_nth(Path data, int n);
+
+		public Path pop_head();
+		public Path pop_tail();
+		public Path pop_nth(int n);
+
+		public unowned Path peek_head();
+		public unowned Path peek_tail();
+		public unowned Path peek_nth(int n);
+
+		public int index(Path data);
+
+		public void remove(Path data);
+		public void remove_all(Path data);
+
+		public void insert_before(GLib.List<Path> sibling, Path data);
+		public void insert_after(GLib.List<Path> sibling, Path data);
+		public void insert_sorted(GLib.List<Path> sibling, Path data, GLib.CompareDataFunc<Path> func);
+
+		public void push_head_link(GLib.List<Path> l);
+		public void push_tail_link(GLib.List<Path> l);
+		public void push_nth_link(int n, GLib.List<Path> l);
+
+		public GLib.List<Path> pop_head_link();
+		public GLib.List<Path> pop_tail_link();
+		public GLib.List<Path> pop_nth_link(int n);
+
+		public unowned GLib.List<Path> peek_head_link();
+		public unowned GLib.List<Path> peek_tail_link();
+		public unowned GLib.List<Path> peek_nth_link(int n);
+
+		public int link_index(GLib.List<Path> l);
+		public void unlink(GLib.List<Path> l);
+		public void delete_link(GLib.List<Path> l);
+	}
+
+
+	[Compact]
 	[CCode (ref_function = "fm_icon_ref", unref_function = "fm_icon_unref", cname = "FmIcon", cprefix = "fm_icon_", cheader_filename = "fm-icon.h")]
 	public class Icon {
 		public uint n_ref;
@@ -52,6 +114,7 @@ namespace Fm {
 	[CCode (ref_function = "fm_file_info_ref", unref_function = "fm_file_info_unref", cname = "FmFileInfo", cprefix = "fm_file_info_", cheader_filename = "fm-file-info.h")]
 	public class FileInfo {
 		public FileInfo ();
+		public FileInfo.from_gfileinfo(Path path, GLib.FileInfo inf);
 
 		public unowned Path get_path();
 		public unowned string? get_name();
@@ -68,6 +131,7 @@ namespace Fm {
 		public Posix.mode_t get_mode();
 
 		public unowned MimeType get_mime_type();
+		public unowned Icon? get_icon();
 
 		public bool is_dir();
 		public bool is_symlink();
@@ -89,6 +153,69 @@ namespace Fm {
 
 		public bool can_thumbnail();
 	}
+
+	[Compact]
+	[CCode (ref_function = "fm_list_ref", unref_function = "fm_list_unref", cname = "FmList", cprefix = "fm_list_", cheader_filename = "fm-file-info.h")]
+	public class FileInfoList {
+
+		[CCode (cname = "fm_file_info_list_new", cheader_filename = "fm-file-info.h")]
+		public FileInfoList();
+
+		public void clear();
+		public bool is_empty();
+		public int get_length();
+
+		public void reverse();
+		// public void @foreach(Func<FileInfo> data);
+		public unowned GLib.List<FileInfo> find(FileInfo data);
+		public unowned GLib.List<FileInfo> find_custom(FileInfo data, GLib.CompareFunc<FileInfo> func);
+		public void sort(GLib.CompareDataFunc<FileInfo> func);
+
+		public void push_head(FileInfo data);
+		public void push_tail(FileInfo data);
+		public void push_nth(FileInfo data, int n);
+
+		public FileInfo pop_head();
+		public FileInfo pop_tail();
+		public FileInfo pop_nth(int n);
+
+		public unowned FileInfo peek_head();
+		public unowned FileInfo peek_tail();
+		public unowned FileInfo peek_nth(int n);
+
+		public int index(FileInfo data);
+
+		public void remove(FileInfo data);
+		public void remove_all(FileInfo data);
+
+		public void insert_before(GLib.List<FileInfo> sibling, FileInfo data);
+		public void insert_after(GLib.List<FileInfo> sibling, FileInfo data);
+		public void insert_sorted(GLib.List<FileInfo> sibling, FileInfo data, GLib.CompareDataFunc<FileInfo> func);
+
+		public void push_head_link(GLib.List<FileInfo> l);
+		public void push_tail_link(GLib.List<FileInfo> l);
+		public void push_nth_link(int n, GLib.List<FileInfo> l);
+
+		public GLib.List<FileInfo> pop_head_link();
+		public GLib.List<FileInfo> pop_tail_link();
+		public GLib.List<FileInfo> pop_nth_link(int n);
+
+		public unowned GLib.List<FileInfo> peek_head_link();
+		public unowned GLib.List<FileInfo> peek_tail_link();
+		public unowned GLib.List<FileInfo> peek_nth_link(int n);
+
+		public int link_index(GLib.List<FileInfo> l);
+		public void unlink(GLib.List<FileInfo> l);
+		public void delete_link(GLib.List<FileInfo> l);
+	}
+
+	// FmMonitor
+	[CCode (cheader_filename = "fm-monitor.h")]
+	public GLib.FileMonitor? monitor_directory(GLib.File gf) throws GLib.Error;
+	[CCode (cheader_filename = "fm-monitor.h")]
+	public GLib.FileMonitor? monitor_lookup_monitor(GLib.File gf);
+	[CCode (cheader_filename = "fm-monitor.h")]
+	public GLib.FileMonitor? monitor_lookup_dummy_monitor(GLib.File gf);
 
 	[CCode (cname = "FmAppInfo", cprefix = "fm_app_info_", cheader_filename = "fm-app-info.h")]
 	namespace AppInfo {

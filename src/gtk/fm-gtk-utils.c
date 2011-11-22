@@ -32,6 +32,9 @@
 #include "fm-path-entry.h"
 #include "fm-app-chooser-dlg.h"
 
+#include "fm-jobs.h"
+#include "fm-gtk-ui.h"
+
 #include "fm-config.h"
 
 static GtkDialog*   _fm_get_user_input_dialog   (GtkWindow* parent, const char* title, const char* msg);
@@ -514,25 +517,33 @@ gboolean fm_eject_volume(GtkWindow* parent, GVolume* vol, gboolean interactive)
 
 void fm_copy_files(GtkWindow* parent, FmPathList* files, FmPath* dest_dir)
 {
-    FmJob* job = fm_file_ops_job_new(FM_FILE_OP_COPY, files);
-    fm_file_ops_job_set_dest(FM_FILE_OPS_JOB(job), dest_dir);
-    fm_file_ops_job_run_with_progress(parent, FM_FILE_OPS_JOB(job));
+	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
+	FmJob2* job = fm_copy_files_to_dir(files, dest_dir, ui);
+	g_object_unref(ui);
+	g_object_unref(job);
 }
 
 void fm_move_files(GtkWindow* parent, FmPathList* files, FmPath* dest_dir)
 {
-    FmJob* job = fm_file_ops_job_new(FM_FILE_OP_MOVE, files);
-    fm_file_ops_job_set_dest(FM_FILE_OPS_JOB(job), dest_dir);
-    fm_file_ops_job_run_with_progress(parent, FM_FILE_OPS_JOB(job));
+	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
+	FmJob2* job = fm_move_files_to_dir(files, dest_dir, ui);
+	g_object_unref(ui);
+	g_object_unref(job);
 }
 
 void fm_trash_files(GtkWindow* parent, FmPathList* files)
 {
+	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
+	FmJob2* job = fm_delete_files2(files, ui);
+	g_object_unref(ui);
+	g_object_unref(job);
+/*
     if(!fm_config->confirm_del || fm_yes_no(parent, NULL, _("Do you want to move the selected files to trash can?"), TRUE))
     {
         FmJob* job = fm_file_ops_job_new(FM_FILE_OP_TRASH, files);
         fm_file_ops_job_run_with_progress(parent, FM_FILE_OPS_JOB(job));
     }
+*/
 }
 
 void fm_untrash_files(GtkWindow* parent, FmPathList* files)
@@ -543,8 +554,10 @@ void fm_untrash_files(GtkWindow* parent, FmPathList* files)
 
 static void fm_delete_files_internal(GtkWindow* parent, FmPathList* files)
 {
-    FmJob* job = fm_file_ops_job_new(FM_FILE_OP_DELETE, files);
-    fm_file_ops_job_run_with_progress(parent, FM_FILE_OPS_JOB(job));
+	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
+	FmJob2* job = fm_delete_files2(files, ui);
+	g_object_unref(ui);
+	g_object_unref(job);
 }
 
 void fm_delete_files(GtkWindow* parent, FmPathList* files)
@@ -598,6 +611,9 @@ void fm_rename_file(GtkWindow* parent, FmPath* file)
     gchar* new_name = fm_get_user_input_rename( parent, _("Rename File"), _("Please enter a new name:"), file->name);
     if( !new_name )
         return;
+
+	// FIXME: replace this with new FmCopyJob(FM_COPY_JOB_MODE_MOVE)
+
     parent_gf = g_file_get_parent(gf);
     dest = g_file_get_child(G_FILE(parent_gf), new_name);
     g_object_unref(parent_gf);

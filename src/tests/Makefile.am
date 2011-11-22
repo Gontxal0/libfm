@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I../base \
 	-I../actions \
 	-I../job \
+	-I../jobs \
 	-I../gtk \
 	$(GIO_CFLAGS) \
 	$(MENU_CACHE_CFLAGS) \

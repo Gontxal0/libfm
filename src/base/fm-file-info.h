@@ -96,56 +96,57 @@ FmFileInfo* fm_file_info_new();
 FmFileInfo* fm_file_info_new_from_gfileinfo(FmPath* path, GFileInfo* inf);
 void fm_file_info_set_from_gfileinfo(FmFileInfo* fi, GFileInfo* inf);
 
-FmFileInfo* fm_file_info_ref( FmFileInfo* fi );
-void fm_file_info_unref( FmFileInfo* fi );
+FmFileInfo* fm_file_info_ref(FmFileInfo* fi);
+void fm_file_info_unref(FmFileInfo* fi);
 
 void fm_file_info_copy(FmFileInfo* fi, FmFileInfo* src);
 
-FmPath* fm_file_info_get_path( FmFileInfo* fi );
-const char* fm_file_info_get_name( FmFileInfo* fi );
-const char* fm_file_info_get_disp_name( FmFileInfo* fi );
+FmPath* fm_file_info_get_path(FmFileInfo* fi);
+const char* fm_file_info_get_name(FmFileInfo* fi);
+const char* fm_file_info_get_disp_name(FmFileInfo* fi);
 
 void fm_file_info_set_path(FmFileInfo* fi, FmPath* path);
 void fm_file_info_set_disp_name( FmFileInfo* fi, const char* name );
 
-goffset fm_file_info_get_size( FmFileInfo* fi );
-const char* fm_file_info_get_disp_size( FmFileInfo* fi );
+goffset fm_file_info_get_size(FmFileInfo* fi);
+const char* fm_file_info_get_disp_size(FmFileInfo* fi);
 
-goffset fm_file_info_get_blocks( FmFileInfo* fi );
+goffset fm_file_info_get_blocks(FmFileInfo* fi);
 
-mode_t fm_file_info_get_mode( FmFileInfo* fi );
-gboolean fm_file_info_is_dir( FmFileInfo* fi );
+mode_t fm_file_info_get_mode(FmFileInfo* fi);
+gboolean fm_file_info_is_dir(FmFileInfo* fi);
 
-FmMimeType* fm_file_info_get_mime_type( FmFileInfo* fi );
+FmMimeType* fm_file_info_get_mime_type(FmFileInfo* fi);
+FmIcon* fm_file_info_get_icon(FmFileInfo* fi);
 
-gboolean fm_file_info_is_dir( FmFileInfo* fi );
+gboolean fm_file_info_is_dir(FmFileInfo* fi);
 
-gboolean fm_file_info_is_symlink( FmFileInfo* fi );
+gboolean fm_file_info_is_symlink(FmFileInfo* fi);
 
-gboolean fm_file_info_is_shortcut( FmFileInfo* fi );
+gboolean fm_file_info_is_shortcut(FmFileInfo* fi);
 
-gboolean fm_file_info_is_mountable( FmFileInfo* fi );
+gboolean fm_file_info_is_mountable(FmFileInfo* fi);
 
-gboolean fm_file_info_is_image( FmFileInfo* fi );
+gboolean fm_file_info_is_image(FmFileInfo* fi);
 
-gboolean fm_file_info_is_text( FmFileInfo* fi );
+gboolean fm_file_info_is_text(FmFileInfo* fi);
 
-gboolean fm_file_info_is_desktop_entry( FmFileInfo* fi );
+gboolean fm_file_info_is_desktop_entry(FmFileInfo* fi);
 
-gboolean fm_file_info_is_unknown_type( FmFileInfo* fi );
+gboolean fm_file_info_is_unknown_type(FmFileInfo* fi);
 
 gboolean fm_file_info_is_hidden(FmFileInfo* fi);
 
 /* if the mime-type is executable, such as shell script, python script, ... */
 gboolean fm_file_info_is_executable_type( FmFileInfo* fi);
 
-const char* fm_file_info_get_target( FmFileInfo* fi );
+const char* fm_file_info_get_target(FmFileInfo* fi);
 
-const char* fm_file_info_get_collate_key( FmFileInfo* fi );
-const char* fm_file_info_get_desc( FmFileInfo* fi );
-const char* fm_file_info_get_disp_mtime( FmFileInfo* fi );
-time_t* fm_file_info_get_mtime( FmFileInfo* fi );
-time_t* fm_file_info_get_atime( FmFileInfo* fi );
+const char* fm_file_info_get_collate_key(FmFileInfo* fi);
+const char* fm_file_info_get_desc(FmFileInfo* fi);
+const char* fm_file_info_get_disp_mtime(FmFileInfo* fi);
+time_t* fm_file_info_get_mtime(FmFileInfo* fi);
+time_t* fm_file_info_get_atime(FmFileInfo* fi);
 
 gboolean fm_file_info_can_thumbnail(FmFileInfo* fi);
 

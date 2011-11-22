@@ -153,6 +153,8 @@ AC_CONFIG_FILES([
     Makefile
     src/Makefile
     src/actions/Makefile
+    src/jobs/Makefile
+    src/gtk/ui/Makefile
     src/tests/Makefile
     data/Makefile
     data/ui/Makefile

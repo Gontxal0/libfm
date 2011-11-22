@@ -6,23 +6,29 @@ AM_CPPFLAGS = \
 	-I$(srcdir)/../base \
 	-I$(srcdir)/../actions \
 	-I$(srcdir)/../job \
+	-I$(srcdir)/../jobs \
 	-DPACKAGE_DATA_DIR=\""$(datadir)/libfm"\" \
 	-DPACKAGE_LIB_DIR=\""$(libdir)/libfm"\" \
 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
 	-include $(CONFIG_HEADER) \
 	$(NULL)
 
-noinst_LTLIBRARIES = libfmactions.la
+noinst_LTLIBRARIES = libfmjobs.la
 
-libfmactions_la_SOURCES = \
-	action.vala \
-	condition.vala \
-	profile.vala \
-	parameters.vala \
-	utils.vala \
+libfmjobs_la_SOURCES = \
+	jobs.vala \
+	job.vala \
+	file-job.vala \
+	copy-job.vala \
+	delete-job.vala \
+	trash-job.vala \
+	change-attr-job.vala \
+	query-info-job.vala \
+	create-file-job.vala \
+	ui.vala \
 	$(NULL)
 
-libfmactions_la_CFLAGS = \
+libfmjobs_la_CFLAGS = \
 	$(GIO_CFLAGS) \
 	-Werror-implicit-function-declaration \
 	$(NULL)
@@ -34,19 +40,19 @@ VALAFLAGS = \
 	--pkg gio-2.0 \
     --pkg posix \
     --pkg libfm \
-    --vapi $(srcdir)/../vapi/fm-actions.vapi \
-    --header fm-actions.h \
+    --vapi $(srcdir)/../vapi/fm-jobs.vapi \
+    --header fm-jobs.h \
 	$(NULL)
 
-libfmactionsincludedir = $(includedir)/libfm/libfm
-libfmactionsinclude_HEADERS = \
-	fm-actions.h \
+libfmjobsincludedir = $(includedir)/libfm/libfm
+libfmjobsinclude_HEADERS = \
+	fm-jobs.h \
 	$(NULL)
 
-libfmactions_la_LDFLAGS = \
+libfmjobs_la_LDFLAGS = \
 	$(NULL)
 
-libfmactions_la_LIBADD = \
+libfmjobs_la_LIBADD = \
 	$(GIO_LIBS) \
 	$(INTLLIBS) \
 	$(NULL)
