@@ -1,7 +1,7 @@
 /*
  *      fm-file-info-job.c
  *
- *      Copyright 2009 PCMan <pcman.tw@gmail.com>
+ *      Copyright 2009 - 2011 PCMan <pcman.tw@gmail.com>
  *
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -66,7 +66,6 @@ static void fm_file_info_job_finalize(GObject *object)
 static void fm_file_info_job_init(FmFileInfoJob *self)
 {
 	self->file_infos = fm_file_info_list_new();
-    fm_job_init_cancellable(FM_JOB(self));
 }
 
 FmJob* fm_file_info_job_new(FmPathList* files_to_query, FmFileInfoJobFlags flags)
@@ -110,10 +109,10 @@ gboolean fm_file_info_job_run(FmJob* fmjob)
 			char* path_str = fm_path_to_str(fi->path);
 			if(!_fm_file_info_job_get_info_for_native_file(FM_JOB(job), fi, path_str, &err))
             {
-                FmJobErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_MILD);
+                FmErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_MILD);
                 g_error_free(err);
                 err = NULL;
-                if(act == FM_JOB_RETRY)
+                if(act == FM_ERROR_ACTION_RETRY)
                     continue; /* retry */
 
                 next = l->next;
@@ -170,10 +169,10 @@ gboolean fm_file_info_job_run(FmJob* fmjob)
 			gf = fm_path_to_gfile(fi->path);
 			if(!_fm_file_info_job_get_info_for_gfile(FM_JOB(job), fi, gf, &err))
             {
-                FmJobErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_MILD);
+                FmErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_MILD);
                 g_error_free(err);
                 err = NULL;
-                if(act == FM_JOB_RETRY)
+                if(act == FM_ERROR_ACTION_RETRY)
                     continue; /* retry */
 
                 next = l->next;
@@ -218,6 +217,8 @@ _retry:
         fi->dev = st.st_dev;
         fi->uid = st.st_uid;
         fi->gid = st.st_gid;
+
+		/* FIXME: need to port FmDirJob to FmJob here. */
 
 		if( ! fm_job_is_cancelled(FM_JOB(job)) )
 		{

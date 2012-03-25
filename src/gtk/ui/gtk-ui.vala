@@ -2,6 +2,12 @@ namespace Fm {
 
 public class GtkUI : Object, UI {
 	public GtkUI(Gtk.Window? parent_window = null) {
+		parent_win = parent_window;
+		if(parent_win != null) {
+			parent_win.destroy.connect(() => {
+				parent_win = null;
+			});
+		}
 	}
 
 	public void show_error(string message, string? title = null, bool use_markup = true) {
@@ -26,14 +32,23 @@ public class GtkUI : Object, UI {
 	public void open_folder(Fm.Path folder) {
 		// FIXME: how to do this correctly?
 	}
+	
+	public Gtk.Window? get_parent_window() {
+		return parent_win;
+	}
 
+	protected weak Gtk.Window? parent_win;
 }
 
 public class GtkFileJobUI : GtkUI, FileJobUI {
 
 	public GtkFileJobUI(Gtk.Window? parent_window = null) {
-		parent_win = parent_window;
+		base(parent_window);
 		default_rename_result = RenameResult.NONE;
+	}
+	
+	public override void dispose() {
+		job = null;
 	}
 
 	~GtkFileJobUI() {
@@ -54,16 +69,44 @@ public class GtkFileJobUI : GtkUI, FileJobUI {
 		show_dlg_timeout_id = Timeout.add(1000, on_show_dlg_timeout);
 	}
 
+	private void finish_show_error() {
+		current_file_label.set_text("");
+		remaining_time_label.set_text("00:00:00");
+		dlg.set_response_sensitive(Gtk.ResponseType.CANCEL, false);
+		dlg.add_button(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE);
+		msg_label.show();
+		icon_widget.set_from_stock(Gtk.STOCK_DIALOG_WARNING, Gtk.IconSize.DIALOG);
+		if(job.is_cancelled()) {
+			msg_label.set_text(_("The file operation is cancelled and there are some errors."));
+			dlg.set_title(_("Cancelled"));
+		}
+		else {
+			msg_label.set_text(_("The file operation is finished, but there are some errors."));
+			dlg.set_title(_("Finished"));
+		}
+	}
+
 	// called by FileJob to inform the end of the job
 	// though FileJob emits "finished" signal, it's easier to just call a function
 	public void finish() {
 		if(dlg != null) {
-			dlg.destroy();
+			// only destroy the dialog if there are no errors to shown
+			if(error_pane.get_visible() == true) {
+				finish_show_error();
+			}
+			else {
+				dlg.destroy();
+				dlg = null;
+			}
 		}
-		else if(show_dlg_timeout_id != 0) {
+
+		if(show_dlg_timeout_id != 0) {
 			Source.remove(show_dlg_timeout_id);
 			show_dlg_timeout_id = 0;
 		}
+
+		// the job will be freed after we return, so don't reference it anymore.
+		job = null;
 	}
 
 	// called by FileJob to show total amount of the job, may be called for many times
@@ -166,20 +209,41 @@ public class GtkFileJobUI : GtkUI, FileJobUI {
 	}
 
 	public ErrorAction handle_error(Error err, Severity severity) {
-		stdout.printf("error: %s\n", err.message);
+		// ensure the dialog is visible
+		show_dialog();
+
+		if(!error_pane.get_visible())
+			error_pane.show();
+
+		// append the error message
+		Gtk.TextIter it;
+		error_buf.get_end_iter(out it);
+		if(current_src_info != null) {
+			var filename = current_src_info.get_display_name();
+			error_buf.insert_with_tags(it, filename, -1, bold_tag, null);
+			error_buf.get_end_iter(out it);
+			error_buf.insert_with_tags(it, ": ", 2, bold_tag, null);
+			error_buf.get_end_iter(out it);
+		}
+		error_buf.insert(it, err.message, -1);
+		error_buf.get_end_iter(out it);
+		error_buf.insert(it, "\n", 1);
+		// debug("error: %s\n", err.message);
 		return ErrorAction.CONTINUE;
 	}
 
-	private void on_dlg_response(Gtk.Dialog dlg, int response) {
+	private void on_dlg_response(Gtk.Dialog dialog, int response) {
 		if(response == Gtk.ResponseType.CANCEL || response == Gtk.ResponseType.DELETE_EVENT)
 		{
 			if(job != null) {
 				job.cancel();
 			}
 			dlg.destroy();
+			dlg = null;
 		}
 		else if(response == Gtk.ResponseType.CLOSE) {
 			dlg.destroy();
+			dlg = null;
 		}
 	}
 
@@ -189,7 +253,12 @@ public class GtkFileJobUI : GtkUI, FileJobUI {
 		return false;
 	}
 
-	protected void show_dialog() {
+	private void show_dialog() {
+		if(show_dlg_timeout_id != 0) {
+			Source.remove(show_dlg_timeout_id);
+			show_dlg_timeout_id = 0;
+		}
+
 		if(dlg != null) {
 			dlg.show();
 			return;
@@ -204,7 +273,7 @@ public class GtkFileJobUI : GtkUI, FileJobUI {
 
 		var dest_label = (Gtk.Label)builder.get_object("to_label");
 		dest_path_label = (Gtk.Label)builder.get_object("dest");
-		var icon_widget = (Gtk.Image)builder.get_object("icon");
+		icon_widget = (Gtk.Image)builder.get_object("icon");
 		msg_label = (Gtk.Label)builder.get_object("msg");
 		var action_label = (Gtk.Label)builder.get_object("action");
 		src_path_label = (Gtk.Label)builder.get_object("src");
@@ -237,7 +306,17 @@ public class GtkFileJobUI : GtkUI, FileJobUI {
 			set_percent(percent);
 
 		dlg.present();
-		show_dlg_timeout_id = 0;
+
+		// When the GUI is shown to the user, we need to make sure that 
+		// the UI object is still reachable. Otherwise errors can occur.
+		// So here we add a reference to UI object for dlg.
+		// Doing manual ref count is very terrible in Vala.
+		// If someone knows a better solution, please fix this.
+		ref(); // add ref count of UI object for the dialog
+		dlg.destroy.connect(() => {
+			dlg = null;
+			unref(); // the dialog is destroyed, free the UI object, too.
+		});
 	}
 
 	private string title;
@@ -257,10 +336,10 @@ public class GtkFileJobUI : GtkUI, FileJobUI {
 	
 	private RenameResult default_rename_result;
 
-	private Gtk.Window? parent_win;
 	private unowned Gtk.Dialog? dlg;
 	private unowned Gtk.Label dest_path_label;
 	private unowned Gtk.Label msg_label;
+	private unowned Gtk.Image icon_widget;
 	private unowned Gtk.Label src_path_label;
 	private unowned Gtk.Label current_file_label;
 	private unowned Gtk.ProgressBar progress_bar;

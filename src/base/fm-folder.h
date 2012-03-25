@@ -8,7 +8,8 @@
  *      the Free Software Foundation; either version 2 of the License, or
  *      (at your option) any later version.
  *
- *      This program is distributed in the hope that it will be useful,
+ *      Thi#ifndef LIBFM_COMPILATION
+s program is distributed in the hope that it will be useful,
  *      but WITHOUT ANY WARRANTY; without even the implied warranty of
  *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *      GNU General Public License for more details.
@@ -23,12 +24,16 @@
 #ifndef __FM_FOLDER_H__
 #define __FM_FOLDER_H__
 
+#if !defined(__LIBFM_H_INSIDE__) && !defined(LIBFM_COMPILATION)
+#error "Only <libfm/fm.h> can be included directly."
+#endif
+
 #include <glib-object.h>
 #include <gio/gio.h>
 #include "fm-path.h"
 #include "fm-dir-list-job.h"
 #include "fm-file-info.h"
-#include "fm-job.h"
+#include "fm-jobs.h"
 #include "fm-file-info-job.h"
 
 G_BEGIN_DECLS
@@ -86,7 +91,7 @@ struct _FmFolderClass
     void (*removed)(FmFolder* dir);
     void (*content_changed)(FmFolder* dir);
     void (*fs_info)(FmFolder* dir);
-    FmJobErrorAction (*error)(FmFolder* dir, GError* err, FmJobErrorSeverity severity);
+    FmErrorAction (*error)(FmFolder* dir, GError* err, FmSeverity severity);
 };
 
 GType       fm_folder_get_type      (void);

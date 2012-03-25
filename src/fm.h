@@ -22,6 +22,8 @@
 #ifndef __LIBFM_FM_H__
 #define __LIBFM_FM_H__
 
+#define __LIBFM_H_INSIDE__
+
 #include "fm-app-info.h"
 #include "fm-archiver.h"
 #include "fm-bookmarks.h"
@@ -41,11 +43,9 @@
 #include "fm-deep-count-job.h"
 #include "fm-dir-list-job.h"
 #include "fm-file-info-job.h"
-#include "fm-file-ops-job-change-attr.h"
-#include "fm-file-ops-job-delete.h"
-#include "fm-file-ops-job.h"
-#include "fm-file-ops-job-xfer.h"
-#include "fm-job.h"
+#include "fm-jobs.h"
+
+#undef __LIBFM_H_INSIDE__
 
 G_BEGIN_DECLS
 

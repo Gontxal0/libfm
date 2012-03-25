@@ -27,8 +27,6 @@
 #include <gio/gdesktopappinfo.h>
 
 #include "fm-gtk-utils.h"
-#include "fm-file-ops-job.h"
-#include "fm-progress-dlg.h"
 #include "fm-path-entry.h"
 #include "fm-app-chooser-dlg.h"
 
@@ -518,7 +516,7 @@ gboolean fm_eject_volume(GtkWindow* parent, GVolume* vol, gboolean interactive)
 void fm_copy_files(GtkWindow* parent, FmPathList* files, FmPath* dest_dir)
 {
 	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
-	FmJob2* job = fm_copy_files_to_dir(files, dest_dir, ui);
+	FmJob* job = fm_copy_files_to_dir(files, dest_dir, ui);
 	g_object_unref(ui);
 	g_object_unref(job);
 }
@@ -526,36 +524,34 @@ void fm_copy_files(GtkWindow* parent, FmPathList* files, FmPath* dest_dir)
 void fm_move_files(GtkWindow* parent, FmPathList* files, FmPath* dest_dir)
 {
 	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
-	FmJob2* job = fm_move_files_to_dir(files, dest_dir, ui);
+	FmJob* job = fm_move_files_to_dir(files, dest_dir, ui);
 	g_object_unref(ui);
 	g_object_unref(job);
 }
 
 void fm_trash_files(GtkWindow* parent, FmPathList* files)
 {
-	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
-	FmJob2* job = fm_delete_files2(files, ui);
-	g_object_unref(ui);
-	g_object_unref(job);
-/*
     if(!fm_config->confirm_del || fm_yes_no(parent, NULL, _("Do you want to move the selected files to trash can?"), TRUE))
     {
-        FmJob* job = fm_file_ops_job_new(FM_FILE_OP_TRASH, files);
-        fm_file_ops_job_run_with_progress(parent, FM_FILE_OPS_JOB(job));
+		FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
+		FmJob* job = fm_trash_files2(files, ui);
+		g_object_unref(ui);
+		g_object_unref(job);
     }
-*/
 }
 
 void fm_untrash_files(GtkWindow* parent, FmPathList* files)
 {
-    FmJob* job = fm_file_ops_job_new(FM_FILE_OP_UNTRASH, files);
-    fm_file_ops_job_run_with_progress(parent, FM_FILE_OPS_JOB(job));
+	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
+	FmJob* job = fm_untrash_files2(files, ui);
+	g_object_unref(ui);
+	g_object_unref(job);
 }
 
 static void fm_delete_files_internal(GtkWindow* parent, FmPathList* files)
 {
 	FmGtkFileJobUI* ui = fm_gtk_file_job_ui_new(parent);
-	FmJob2* job = fm_delete_files2(files, ui);
+	FmJob* job = fm_delete_files2(files, ui);
 	g_object_unref(ui);
 	g_object_unref(job);
 }

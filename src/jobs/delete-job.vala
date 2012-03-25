@@ -99,8 +99,9 @@ public class DeleteJob : FileJob {
 				// TODO: handle ErrorAction.RETRY later
 			}
 
-			// emit a fake notification signal for file creation for
+			// emit a fake notification signal for file deletion for
 			// filesystems which don't have file monitor support.
+			// FIXME: should we do this to regular GFileMonitor as well?
 			var parent_dir = file.get_parent(); // get parent folder of src file
 			var parent_mon = monitor_lookup_dummy_monitor(parent_dir);
 			if(parent_mon != null) {

@@ -36,7 +36,8 @@
 #include "fm-file-properties.h"
 #include "fm-side-pane.h"
 
-static void fm_main_win_finalize              (GObject *object);
+static void fm_main_win_dispose(GObject *object);
+static void fm_main_win_finalize(GObject *object);
 G_DEFINE_TYPE(FmMainWin, fm_main_win, GTK_TYPE_WINDOW);
 
 /* static void on_new_tab(GtkAction* act, FmMainWin* win); */
@@ -91,6 +92,7 @@ static void fm_main_win_class_init(FmMainWinClass *klass)
 {
     GObjectClass *g_object_class;
     g_object_class = G_OBJECT_CLASS(klass);
+    g_object_class->dispose = fm_main_win_dispose;
     g_object_class->finalize = fm_main_win_finalize;
     fm_main_win_parent_class = (GtkWindowClass*)g_type_class_peek(GTK_TYPE_WINDOW);
 }
@@ -445,7 +447,6 @@ static void fm_main_win_init(FmMainWin *win)
     win->statusbar_ctx = gtk_statusbar_get_context_id(GTK_STATUSBAR(win->statusbar), "status");
     win->statusbar_ctx2 = gtk_statusbar_get_context_id(GTK_STATUSBAR(win->statusbar), "status2");
 
-
     g_object_unref(act_grp);
     win->ui = ui;
 
@@ -464,28 +465,47 @@ GtkWidget* fm_main_win_new(void)
     return (GtkWidget*)g_object_new(FM_MAIN_WIN_TYPE, NULL);
 }
 
+static void fm_main_win_dispose(GObject *object)
+{
+    FmMainWin *win = FM_MAIN_WIN(object);
+
+	if(win->nav_history)
+	{
+		g_object_unref(win->nav_history);
+		win->nav_history = NULL;
+	}
+
+	if(win->ui)
+	{
+		g_object_unref(win->ui);
+		win->ui = NULL;
+	}
+
+	if(win->bookmarks)
+	{
+		g_object_unref(win->bookmarks);
+		win->bookmarks = NULL;
+	}
+
+    if(win->folder)
+    {
+        g_signal_handlers_disconnect_by_func(win->folder, on_folder_fs_info, win);
+        g_object_unref(win->folder);
+        win->folder = NULL;
+    }
+    if(G_OBJECT_CLASS(fm_main_win_parent_class)->dispose)
+        (*G_OBJECT_CLASS(fm_main_win_parent_class)->dispose)(object);
+}
 
 static void fm_main_win_finalize(GObject *object)
 {
     FmMainWin *win;
-    FmFolder* folder;
-
     g_return_if_fail(object != NULL);
     g_return_if_fail(IS_FM_MAIN_WIN(object));
 
     --n_wins;
 
     win = FM_MAIN_WIN(object);
-
-    g_object_unref(win->nav_history);
-    g_object_unref(win->ui);
-    g_object_unref(win->bookmarks);
-
-    if(win->folder)
-    {
-        g_signal_handlers_disconnect_by_func(win->folder, on_folder_fs_info, win);
-        g_object_unref(win->folder);
-    }
 
     if (G_OBJECT_CLASS(fm_main_win_parent_class)->finalize)
         (* G_OBJECT_CLASS(fm_main_win_parent_class)->finalize)(object);

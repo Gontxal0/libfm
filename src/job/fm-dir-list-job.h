@@ -23,7 +23,6 @@
 #ifndef __FM_DIR_LIST_JOB_H__
 #define __FM_DIR_LIST_JOB_H__
 
-#include "fm-job.h"
 #include "fm-jobs.h"
 #include "fm-path.h"
 #include "fm-file-info.h"

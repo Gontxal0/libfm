@@ -15,6 +15,12 @@ namespace Fm {
 		public unowned Path get_parent();
 		public unowned string get_basename();
 
+		public static unowned Path get_root(); // /
+		public static unowned Path get_home(); // home directory
+		public static unowned Path get_desktop(); // $HOME/Desktop
+		public static unowned Path get_trash(); // trash:///
+		public static unowned Path get_apps_menu(); // menu://applications.menu/
+
 		// FmPathFlags get_flags();
 		public bool has_prefix(Path prefix);
 		public bool is_native();
@@ -30,6 +36,8 @@ namespace Fm {
 
 		public string display_name(bool human_readable);
 		public string display_basename();
+		
+		public string? get_trash_real_path();
 
 		public uint hash();
 		public bool equal(Path* p2);

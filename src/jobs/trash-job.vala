@@ -85,11 +85,20 @@ public class TrashJob : FileJob {
 				trash_file(file, info);
 			}
 			catch(IOError err) {
+				if(failed_paths == null)
+					failed_paths = new PathList();
+				failed_paths.push_tail(src_path);
 			}
 		}
 
 		return true;
 	}
+
+	unowned PathList? get_failed_paths() {
+		return failed_paths;
+	}
+
+	PathList? failed_paths;
 }
 
 }

@@ -226,6 +226,7 @@ void on_file_info_finished(FmFileInfoJob* job, FmFolder* folder)
         g_signal_emit(folder, signals[CONTENT_CHANGED], 0);
 
     folder->pending_jobs = g_slist_remove(folder->pending_jobs, job);
+    g_object_unref(job);
 }
 
 gboolean on_idle(FmFolder* folder)
@@ -399,13 +400,14 @@ static void on_job_finished(FmDirListJob* job, FmFolder* folder)
     if(job->dir_fi)
         folder->dir_fi = fm_file_info_ref(job->dir_fi);
 
-    folder->job = NULL; /* the job object will be freed in idle handler. */
+	g_object_unref(folder->job);
+    folder->job = NULL;
     g_signal_emit(folder, signals[LOADED], 0);
 }
 
-static FmJobErrorAction on_job_err(FmDirListJob* job, GError* err, FmJobErrorSeverity severity, FmFolder* folder)
+static FmErrorAction on_job_err(FmDirListJob* job, GError* err, FmSeverity severity, FmFolder* folder)
 {
-    FmJobErrorAction ret;
+    FmErrorAction ret;
     g_signal_emit(folder, signals[ERROR], 0, err, severity, &ret);
     return ret;
 }
@@ -482,7 +484,7 @@ static void fm_folder_finalize(GObject *object)
             FmJob* job = FM_JOB(l->data);
             g_signal_handlers_disconnect_by_func(job, on_job_finished, folder);
             fm_job_cancel(job);
-            /* the job will be freed automatically in idle handler. */
+            g_object_unref(job);
         }
     }
 

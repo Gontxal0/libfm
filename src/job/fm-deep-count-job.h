@@ -23,7 +23,7 @@
 #ifndef __FM_DEEP_COUNT_JOB_H__
 #define __FM_DEEP_COUNT_JOB_H__
 
-#include "fm-job.h"
+#include "fm-jobs.h"
 #include "fm-path.h"
 #include <gio/gio.h>
 #include <sys/types.h>

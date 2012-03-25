@@ -22,6 +22,8 @@
 #ifndef __FM_GTK_H__
 #define __FM_GTK_H__
 
+#define __LIBFM_GTK_H_INSIDE__
+
 #include "fm.h"
 #include "fm-app-chooser-combo-box.h"
 #include "fm-app-chooser-dlg.h"
@@ -46,10 +48,11 @@
 #include "fm-path-entry.h"
 #include "fm-places-model.h"
 #include "fm-places-view.h"
-#include "fm-progress-dlg.h"
 #include "fm-side-pane.h"
 #include "fm-tab-label.h"
 #include "fm-thumbnail.h"
+
+#undef __LIBFM_GTK_H_INSIDE__
 
 G_BEGIN_DECLS
 

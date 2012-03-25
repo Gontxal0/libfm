@@ -24,19 +24,22 @@ namespace Fm {
 public enum CopyJobMode {
 	COPY, // copy files
 	MOVE, // move files
-	LINK // create symlinks
+	LINK, // create symlinks
+	UNTRASH // restore trashed files
 }
 
 public class CopyJob : FileJob {
 
-	public CopyJob(CopyJobMode mode, 
+	public CopyJob(CopyJobMode mode,
 					 PathList src_paths,
-					 PathList dest_paths,
+					 PathList? dest_paths,
 					 FileJobUI? ui = null) {
 		base(ui);
 		this.mode = mode;
 		this.src_paths = src_paths;
 		this.dest_paths = dest_paths;
+
+		bool has_dest = true;
 		if(ui != null) {
 			unowned string title = null;
 			switch(mode) {
@@ -49,8 +52,12 @@ public class CopyJob : FileJob {
 			case CopyJobMode.LINK:
 				title = _("Creating symlinks");
 				break;
+			case CopyJobMode.UNTRASH:
+				// FIXME: how should I name this?
+				title = _("Moving files");
+				break;
 			}
-			ui.init_with_job(this, title, title, true);
+			ui.init_with_job(this, title, title, has_dest);
 		}
 	}
 
@@ -89,9 +96,9 @@ public class CopyJob : FileJob {
 			// different filesystems/devices are involved.
 			unowned List<Path> dest_l = dest_paths.peek_head_link();
 			foreach(unowned Path src_path in src_paths.peek_head_link()) {
-				File src_file = src_path.to_gfile();
+				var src_file = src_path.to_gfile();
 				unowned Path dest_path = dest_l.data;
-				File dest_dir = dest_path.get_parent().to_gfile(); // FIXME: get_parent() might return null?
+				var dest_dir = dest_path.get_parent().to_gfile(); // FIXME: get_parent() might return null?
 				try {
 					var src_info = src_file.query_info(file_attributes, FileQueryInfoFlags.NOFOLLOW_SYMLINKS, cancellable);
 					// NOTE: we cannot use FileQueryInfoFlags.NOFOLLOW_SYMLINKS here for dest dir
@@ -126,6 +133,7 @@ public class CopyJob : FileJob {
 			}
 			break;
 		case CopyJobMode.LINK:
+		case CopyJobMode.UNTRASH:
 			// create symlinks for every source file
 			foreach(unowned Path src_path in src_paths.peek_head_link()) {
 				File file = src_path.to_gfile();
@@ -481,15 +489,121 @@ public class CopyJob : FileJob {
 		return false;
 	}
 
+	/*
+	private bool trash_file(File file, GLib.FileInfo info) {
+		bool ret = false;
+		set_currently_processed(file, info, null);
+		update_progress_display();
+
+		// Thread.usleep(2000); // delay for ease of debugging
+		try {
+			file.trash(cancellable);
+			ret = true;
+			++n_processed_files;
+			processed_size += get_file_size(info);
+		}
+		catch(IOError err) {
+			if(handle_error(err) == ErrorAction.ABORT)
+				return false;
+		}
+
+		// calculate percent;
+		double fraction = (double)(n_processed_files + n_processed_dirs) / (n_total_dirs + n_total_files);
+		set_percent(fraction);
+		update_progress_display();
+
+		return ret;
+	}
+
+	// get the real path of the trashed file
+	private Path? get_dest_for_trash(Mount home_mount, Path src_path) {
+		Path? ret = null;
+		var src_file = src_path.to_gfile();
+		if(src_file.is_native()) {
+			try {
+				Path? trash_dir = null;
+				// var info = file.query_info("unix::*", 0, null);
+				var mount = src_file.find_enclosing_mount(cancellable);
+				if(mount != home_mount) { // not in home
+					// try top dir
+					
+				}
+				// fallback to home trash dir
+				if(trash_dir == null) {
+					var trash_dir_name = GLib.Path.build_filename(Environment.get_user_data_dir(), "Trash", "files", null);
+					trash_dir = new Path.for_path(trash_dir_name);
+				}
+				
+				if(trash_dir != null) {
+					ret = new Path.child(trash_dir, src_path.get_basename());
+				}
+			}
+			catch(IOError err) {
+			}
+		}
+		return ret;
+	}
+	*/
+
+	// ensure that we have proper dest paths
+	private bool ensure_dest() {
+		// FIXME: handle cancellable here
+		switch(mode) {
+		/*
+		case CopyJobMode.TRASH:
+			dest_paths = new PathList();
+			var home_file = File.new_for_path(Environment.get_home_dir());
+			var home_mount = home_file.find_enclosing_mount(cancellable);
+			debug("home_mount = %p", (void*)home_mount);
+			foreach(unowned Path src_path in src_paths.peek_head_link()) {
+				if(is_cancelled())
+					break;
+				// FIXME: the dest path is not correct, but since we do not use it
+				//   this won't cause problems. However, if we implement trashing
+				//   ourselves later, this path should be correct.
+				// var dest_path = new Path.child(Path.get_trash(), path.get_basename());
+				var dest_path = get_dest_for_trash(home_mount, src_path);
+				debug("trash dest: %s", dest_path != null ? dest_path.to_str():"null");
+				dest_paths.push_tail(dest_path);
+			}
+			break;
+		*/
+		case CopyJobMode.UNTRASH:
+			dest_paths = new PathList();
+			// get original paths of the trashed files
+			foreach(unowned Path path in src_paths.peek_head_link()) {
+				if(is_cancelled())
+					break;
+				var file = path.to_gfile();
+				try {
+					var info = file.query_info("trash::*", 0, null);
+					var dest_path_str = info.get_attribute_byte_string("trash::orig-path");
+					var dest_path = new Path.for_str(dest_path_str);
+					// debug("orig-path: %s", dest_path.to_str());
+					dest_paths.push_tail(dest_path);
+				}
+				catch(IOError err) {
+					// FIXME: emit the error properly
+					return false;
+				}
+			}
+			break;
+		}
+		return true;
+	}
+
 	protected override bool run() {
-		if(calculate_total() == false) // calculate total amount of work
+		if(calculate_total() == false || ensure_dest() == false) // calculate total amount of work
 			return false;
+
 		set_ready(); // tell the UI that we're ready
 		stdout.printf("total: %llu, %d, %d\n", total_size, n_total_files, n_total_dirs);
 
 		// ready to copy/move files
 		unowned List<Path> dest_l = dest_paths.peek_head_link();
 		foreach(unowned Path src_path in src_paths.peek_head_link()) {
+			if(is_cancelled())
+				break;
 			unowned Path dest_path = dest_l.data;
 			var src_file = src_path.to_gfile();
 			var dest_file = dest_path.to_gfile();
@@ -523,6 +637,14 @@ public class CopyJob : FileJob {
 				}
 				case CopyJobMode.LINK: // TODO: create symlinks
 					link_file(src_file, src_info, dest_file);
+					break;
+				/*
+				case CopyJobMode.TRASH:
+					trash_file(src_file, src_info);
+					break;
+				*/
+				case CopyJobMode.UNTRASH:
+					move_file(src_file, src_info, dest_file);
 					break;
 				}
 			}

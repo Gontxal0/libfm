@@ -21,8 +21,7 @@
 
 namespace Fm {
 
-// later we can replace Job2 with Job
-public abstract class FileJob : Job2 {
+public abstract class FileJob : Job {
 
 	[Flags]
 	private enum UpdateFlags {
@@ -41,6 +40,10 @@ public abstract class FileJob : Job2 {
 
 	public FileJob(FileJobUI? ui = null) {
 		this.ui = ui;
+	}
+
+	public override void dispose() {
+		ui = null;
 	}
 
 	~FileJob() {
@@ -71,8 +74,8 @@ public abstract class FileJob : Job2 {
 				handle_error(err);
 			}
 		}
-		timer.continue();
 		new_dest = out_new_dest;
+		timer.continue();
 		return ret;
 	}
 
@@ -280,9 +283,14 @@ public abstract class FileJob : Job2 {
 	}
 
 	protected ErrorAction handle_error(Error err, Severity severity = Severity.MODERATE) {
+		timer.stop();
 		ErrorAction ret = ErrorAction.CONTINUE;
 		if(ui != null) {
 			job.send_to_mainloop(() => {
+				// set src and dest paths prior to showing the error.
+				ui.set_current_src_dest(current_src_path, current_dest_path);
+				ui.set_currently_processed(current_src_file, current_src_info, current_dest_file);
+
 				ret = ui.handle_error(err, severity);
 				return true;
 			});
@@ -291,6 +299,7 @@ public abstract class FileJob : Job2 {
 			if(ret == ErrorAction.ABORT || severity == Severity.CRITICAL)
 				cancel(); // cancel the job
 		}
+		timer.continue();
 		return ret;
 	}
 

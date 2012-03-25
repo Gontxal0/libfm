@@ -22,7 +22,7 @@
 namespace Fm {
 
 // TODO: replace FmFileInfoJob
-public class QueryInfoJob : Job2 {
+public class QueryInfoJob : Job {
 	public QueryInfoJob(UI? ui = null) {
 	}
 

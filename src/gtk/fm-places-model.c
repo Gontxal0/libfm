@@ -55,6 +55,7 @@ static void on_file_info_job_finished(FmFileInfoJob* job, gpointer user_data)
     FmFileInfo* fi;
 
     /* g_debug("file info job finished"); */
+    g_object_unref(job);
     model->jobs = g_slist_remove(model->jobs, job);
 
     if(!gtk_tree_model_get_iter_first(GTK_TREE_MODEL(model), &it))

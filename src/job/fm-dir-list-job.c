@@ -53,7 +53,6 @@ static void fm_dir_list_job_class_init(FmDirListJobClass *klass)
 
 static void fm_dir_list_job_init(FmDirListJob *self)
 {
-    fm_job_init_cancellable(FM_JOB(self));
 }
 
 
@@ -101,7 +100,7 @@ static void fm_dir_list_job_finalize(GObject *object)
 /* defined in fm-file-info.c */
 FmFileInfo* _fm_file_info_new_from_menu_cache_item(FmPath* path, MenuCacheItem* item);
 
-static gpointer list_menu_items(FmJob* fmjob, gpointer user_data)
+static gboolean list_menu_items(FmJob* fmjob, gpointer user_data)
 {
     FmDirListJob* job = (FmDirListJob*)fmjob;
     FmFileInfo* fi;
@@ -202,13 +201,14 @@ static gpointer list_menu_items(FmJob* fmjob, gpointer user_data)
     menu_cache_unref(mc);
 
     g_free(path_str);
-    return NULL;
+    return TRUE;
 }
 
 gboolean fm_dir_list_job_list_xdg_menu(FmDirListJob* job)
 {
     /* Calling libmenu-cache is only allowed in main thread. */
-    fm_job_call_main_thread(FM_JOB(job), list_menu_items, NULL);
+    g_io_scheduler_job_send_to_mainloop(FM_JOB(job)->job, 
+		(GSourceFunc)list_menu_items, NULL, NULL);
     return TRUE;
 }
 
@@ -230,7 +230,7 @@ static gboolean fm_dir_list_job_run_posix(FmDirListJob* job)
         {
             err = g_error_new(G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY, _("The specified directory is not valid"));
             fm_file_info_unref(fi);
-            fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_CRITICAL);
+            fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_CRITICAL);
             g_error_free(err);
             return FALSE;
         }
@@ -239,7 +239,7 @@ static gboolean fm_dir_list_job_run_posix(FmDirListJob* job)
     {
         err = g_error_new(G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY, _("The specified directory is not valid"));
         fm_file_info_unref(fi);
-        fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_CRITICAL);
+        fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_CRITICAL);
         g_error_free(err);
         return FALSE;
     }
@@ -277,10 +277,10 @@ static gboolean fm_dir_list_job_run_posix(FmDirListJob* job)
                 fm_list_push_tail_noref(job->files, fi);
             else /* failed! */
             {
-                FmJobErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_MILD);
+                FmErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_MILD);
                 g_error_free(err);
                 err = NULL;
-                if(act == FM_JOB_RETRY)
+                if(act == FM_ERROR_ACTION_RETRY)
                     goto _retry;
 
                 fm_file_info_unref(fi);
@@ -291,7 +291,7 @@ static gboolean fm_dir_list_job_run_posix(FmDirListJob* job)
     }
     else
     {
-        fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_CRITICAL);
+        fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_CRITICAL);
         g_error_free(err);
     }
     g_free(dir_path);
@@ -317,8 +317,8 @@ _retry:
     inf = g_file_query_info(gf, gfile_info_query_attribs, 0, fm_job_get_cancellable(fmjob), &err);
     if(!inf )
     {
-        FmJobErrorAction act = fm_job_emit_error(fmjob, err, FM_JOB_ERROR_MODERATE);
-        if( act == FM_JOB_RETRY )
+        FmErrorAction act = fm_job_emit_error(fmjob, err, FM_SEVERITY_MODERATE);
+        if( act == FM_ERROR_ACTION_RETRY )
         {
             g_error_free(err);
             err = NULL;
@@ -335,7 +335,7 @@ _retry:
     if( g_file_info_get_file_type(inf) != G_FILE_TYPE_DIRECTORY)
     {
         err = g_error_new(G_IO_ERROR, G_IO_ERROR_NOT_DIRECTORY, _("The specified directory is not valid"));
-        fm_job_emit_error(fmjob, err, FM_JOB_ERROR_CRITICAL);
+        fm_job_emit_error(fmjob, err, FM_SEVERITY_CRITICAL);
         g_error_free(err);
         g_object_unref(gf);
         g_object_unref(inf);
@@ -387,10 +387,10 @@ _retry:
             {
                 if(err)
                 {
-                    FmJobErrorAction act = fm_job_emit_error(fmjob, err, FM_JOB_ERROR_MILD);
+                    FmErrorAction act = fm_job_emit_error(fmjob, err, FM_SEVERITY_MILD);
                     g_error_free(err);
-                    /* FM_JOB_RETRY is not supported. */
-                    if(act == FM_JOB_ABORT)
+                    /* FM_ERROR_ACTION_RETRY is not supported. */
+                    if(act == FM_ERROR_ACTION_ABORT)
                         fm_job_cancel(FM_JOB(job));
                 }
                 break; /* FIXME: error handling */
@@ -402,7 +402,7 @@ _retry:
     }
     else
     {
-        fm_job_emit_error(fmjob, err, FM_JOB_ERROR_CRITICAL);
+        fm_job_emit_error(fmjob, err, FM_SEVERITY_CRITICAL);
         g_error_free(err);
         return FALSE;
     }

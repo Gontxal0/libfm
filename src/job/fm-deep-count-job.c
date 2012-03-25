@@ -71,7 +71,6 @@ static void fm_deep_count_job_finalize(GObject *object)
 
 static void fm_deep_count_job_init(FmDeepCountJob *self)
 {
-    fm_job_init_cancellable(FM_JOB(self));
 }
 
 
@@ -144,10 +143,10 @@ _retry_stat:
     else
     {
         GError* err = g_error_new(G_IO_ERROR, g_io_error_from_errno(errno), g_strerror(errno));
-        FmJobErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_MILD);
+        FmErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_MILD);
         g_error_free(err);
         err = NULL;
-        if(act == FM_JOB_RETRY)
+        if(act == FM_ERROR_ACTION_RETRY)
             goto _retry_stat;
         return FALSE;
     }
@@ -207,10 +206,10 @@ _retry_query_info:
                     fm_job_get_cancellable(fmjob), &err);
         if(!inf)
         {
-            FmJobErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_MILD);
+            FmErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_MILD);
             g_error_free(err);
             err = NULL;
-            if(act == FM_JOB_RETRY)
+            if(act == FM_ERROR_ACTION_RETRY)
                 goto _retry_query_info;
             return FALSE;
         }
@@ -289,8 +288,8 @@ _retry_query_info:
                     {
                         if(err) /* error! */
                         {
-                            /* FM_JOB_RETRY is not supported */
-                            FmJobErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_MILD);
+                            /* FM_ERROR_ACTION_RETRY is not supported */
+                            FmErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_MILD);
                             g_error_free(err);
                             err = NULL;
                         }
@@ -306,10 +305,10 @@ _retry_query_info:
             }
             else
             {
-                FmJobErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_JOB_ERROR_MILD);
+                FmErrorAction act = fm_job_emit_error(FM_JOB(job), err, FM_SEVERITY_MILD);
                 g_error_free(err);
                 err = NULL;
-                if(act == FM_JOB_RETRY)
+                if(act == FM_ERROR_ACTION_RETRY)
                     goto _retry_enum_children;
             }
         }

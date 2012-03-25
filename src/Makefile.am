@@ -21,6 +21,7 @@ AM_CPPFLAGS = \
 	-I$(srcdir)/gtk \
 	-I$(srcdir)/gtk/ui \
 	-I$(srcdir)/demo \
+	-DLIBFM_COMPILATION \
 	-DPACKAGE_DATA_DIR=\""$(datadir)/libfm"\" \
 	-DPACKAGE_UI_DIR=\""$(datadir)/libfm/ui"\" \
 	-DPACKAGE_LIB_DIR=\""$(libdir)/libfm"\" \
@@ -79,15 +80,9 @@ base_SOURCES = \
 	$(NULL)
 
 job_SOURCES = \
-	job/fm-job.c \
-	job/fm-simple-job.c \
 	job/fm-dir-list-job.c \
 	job/fm-deep-count-job.c  \
-	job/fm-file-ops-job.c \
 	job/fm-file-info-job.c \
-	job/fm-file-ops-job-xfer.c \
-	job/fm-file-ops-job-delete.c \
-	job/fm-file-ops-job-change-attr.c \
 	$(NULL)
 
 libfm_SOURCES = \
@@ -129,7 +124,6 @@ libfm_gtk_SOURCES = \
 	gtk/fm-file-menu.c \
 	gtk/fm-file-properties.c \
 	gtk/fm-clipboard.c \
-	gtk/fm-progress-dlg.c \
 	gtk/fm-icon-pixbuf.c \
 	gtk/fm-cell-renderer-text.c \
 	gtk/fm-cell-renderer-pixbuf.c \
@@ -163,15 +157,10 @@ libfminclude_HEADERS = \
 	base/fm-archiver.h \
 	base/fm-app-info.h \
 	base/fm-marshal.h \
-	job/fm-job.h \
-	job/fm-simple-job.h \
 	job/fm-dir-list-job.h \
 	job/fm-deep-count-job.h \
-	job/fm-file-ops-job.h \
 	job/fm-file-info-job.h \
-	job/fm-file-ops-job-xfer.h \
-	job/fm-file-ops-job-delete.h \
-	job/fm-file-ops-job-change-attr.h \
+	jobs/fm-jobs.h \
 	$(NULL)
 
 libfmgtkincludedir = $(includedir)/libfm/libfm
@@ -191,7 +180,6 @@ libfmgtkinclude_HEADERS = \
 	gtk/fm-file-menu.h \
 	gtk/fm-file-properties.h \
 	gtk/fm-clipboard.h \
-	gtk/fm-progress-dlg.h \
 	gtk/fm-icon-pixbuf.h \
 	gtk/fm-cell-renderer-text.h \
 	gtk/fm-cell-renderer-pixbuf.h \
@@ -252,7 +240,8 @@ libfm_gtk_la_CFLAGS = \
 	-I$(srcdir)/base \
 	-I$(srcdir)/job \
 	-I$(srcdir)/gtk \
-	-Werror-implicit-function-declaration
+	-Werror-implicit-function-declaration \
+	$(NULL)
 
 libfm_gtk_la_LIBADD = \
 	$(GTK_LIBS) \

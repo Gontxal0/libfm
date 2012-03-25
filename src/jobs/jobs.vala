@@ -73,11 +73,15 @@ public FileJob delete_files2(PathList src_paths, FileJobUI ui = null) {
 }
 
 public FileJob trash_files2(PathList src_paths, FileJobUI ui = null) {
-	return null;
+	var job = new TrashJob(src_paths, ui);
+	job.run_async();
+	return job;
 }
 
 public FileJob untrash_files2(PathList src_paths, FileJobUI ui = null) {
-	return null;
+	var job = new CopyJob(CopyJobMode.UNTRASH, src_paths, null, ui);
+	job.run_async();
+	return job;
 }
 
 }

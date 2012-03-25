@@ -28,7 +28,6 @@
 #include <stdarg.h>
 
 #include "fm-path.h"
-#include "fm-file-ops-job.h"
 #include "fm-utils.h"
 #include "fm-file-launcher.h"
 

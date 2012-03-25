@@ -42,6 +42,7 @@ VALAFLAGS = \
     --pkg libfm \
     --vapi $(srcdir)/../vapi/fm-jobs.vapi \
     --header fm-jobs.h \
+	--disable-warnings \
 	$(NULL)
 
 libfmjobsincludedir = $(includedir)/libfm/libfm
