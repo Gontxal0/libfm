@@ -94,7 +94,7 @@ public class TrashJob : FileJob {
 		return true;
 	}
 
-	unowned PathList? get_failed_paths() {
+	public unowned PathList? get_failed_paths() {
 		return failed_paths;
 	}
 

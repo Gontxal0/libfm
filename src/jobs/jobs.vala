@@ -75,6 +75,14 @@ public FileJob delete_files2(PathList src_paths, FileJobUI ui = null) {
 public FileJob trash_files2(PathList src_paths, FileJobUI ui = null) {
 	var job = new TrashJob(src_paths, ui);
 	job.run_async();
+	/*
+	job.finished.connect(() => {
+		var failed_paths = job.get_failed_paths();
+		// FIXME: ui objects cannot be reused.
+		if(failed_paths != null) {
+			delete_files2(failed_paths, ui);
+		}
+	})*/;
 	return job;
 }
 
