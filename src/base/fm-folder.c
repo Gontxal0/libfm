@@ -65,7 +65,7 @@ struct _FmFolder
     FmFileInfoList* files;
 
     /* for file monitor */
-    guint idle_handler;
+    guint changes_emission_timeout_handler;
     GSList* files_to_add;
     GSList* files_to_update;
     GSList* files_to_del;
@@ -88,7 +88,7 @@ static void fm_folder_dispose(GObject *object);
 static void fm_folder_content_changed(FmFolder* folder);
 
 static void on_file_info_job_finished(FmFileInfoJob* job, FmFolder* folder);
-static gboolean on_idle(FmFolder* folder);
+static gboolean on_emit_changes(FmFolder* folder);
 
 G_DEFINE_TYPE(FmFolder, fm_folder, G_TYPE_OBJECT);
 
@@ -101,6 +101,8 @@ static GVolumeMonitor* volume_monitor = NULL;
 
 /* used for on_query_filesystem_info_finished() to lock folder */
 G_LOCK_DEFINE_STATIC(query);
+
+#define CHANGE_EMISSION_TIMEOUT	600
 
 static void fm_folder_class_init(FmFolderClass *klass)
 {
@@ -396,7 +398,7 @@ static void on_file_info_job_finished(FmFileInfoJob* job, FmFolder* folder)
     g_object_unref(job);
 }
 
-static gboolean on_idle(FmFolder* folder)
+static gboolean on_emit_changes(FmFolder* folder)
 {
     GSList* l;
     FmFileInfoJob* job = NULL;
@@ -467,7 +469,7 @@ static gboolean on_idle(FmFolder* folder)
     }
 
     G_LOCK(query);
-    folder->idle_handler = 0;
+    folder->changes_emission_timeout_handler = 0;
     if(folder->filesystem_info_pending)
     {
         g_signal_emit(folder, signals[FS_INFO], 0);
@@ -529,8 +531,8 @@ static void on_folder_changed(GFileMonitor* mon, GFile* gf, GFile* other, GFileM
         case G_FILE_MONITOR_EVENT_CHANGES_DONE_HINT:
             folder->pending_change_notify = TRUE;
             G_LOCK(query);
-            if(!folder->idle_handler)
-                folder->idle_handler = g_idle_add_full(G_PRIORITY_LOW, (GSourceFunc)on_idle, g_object_ref(folder), NULL);
+            if(!folder->changes_emission_timeout_handler)
+                folder->changes_emission_timeout_handler = g_timeout_add_full(G_PRIORITY_LOW, CHANGE_EMISSION_TIMEOUT, (GSourceFunc)on_emit_changes, g_object_ref(folder), NULL);
             G_UNLOCK(query);
             /* g_debug("folder is changed"); */
             break;
@@ -601,8 +603,8 @@ static void on_folder_changed(GFileMonitor* mon, GFile* gf, GFile* other, GFileM
         return;
     }
     G_LOCK(query);
-    if(!folder->idle_handler)
-        folder->idle_handler = g_idle_add_full(G_PRIORITY_LOW, (GSourceFunc)on_idle, g_object_ref(folder), NULL);
+    if(!folder->changes_emission_timeout_handler)
+        folder->changes_emission_timeout_handler = g_timeout_add_full(G_PRIORITY_LOW, CHANGE_EMISSION_TIMEOUT, (GSourceFunc)on_emit_changes, g_object_ref(folder), NULL);
     G_UNLOCK(query);
 }
 
@@ -757,10 +759,10 @@ static void fm_folder_dispose(GObject *object)
     }
 
     G_LOCK(query);
-    if(folder->idle_handler)
+    if(folder->changes_emission_timeout_handler)
     {
-        g_source_remove(folder->idle_handler);
-        folder->idle_handler = 0;
+        g_source_remove(folder->changes_emission_timeout_handler);
+        folder->changes_emission_timeout_handler = 0;
         if(folder->files_to_add)
         {
             g_slist_foreach(folder->files_to_add, (GFunc)g_free, NULL);
@@ -1181,8 +1183,8 @@ _out:
 
     folder->filesystem_info_pending = TRUE;
     /* we have a reference borrowed by async query still */
-    if(!folder->idle_handler)
-        folder->idle_handler = g_idle_add_full(G_PRIORITY_LOW, (GSourceFunc)on_idle, folder, NULL);
+    if(!folder->changes_emission_timeout_handler)
+        folder->changes_emission_timeout_handler = g_timeout_add_full(G_PRIORITY_LOW, CHANGE_EMISSION_TIMEOUT, (GSourceFunc)on_emit_changes, folder, NULL);
     else
         g_object_unref(folder);
     G_UNLOCK(query);

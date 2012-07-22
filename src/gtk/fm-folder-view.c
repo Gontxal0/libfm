@@ -74,6 +74,7 @@ struct _FmFolderView
 
     FmFileInfoList* cached_selected_files;
     FmPathList* cached_selected_file_paths;
+    guint sel_changed_timeout;
 };
 
 #define SINGLE_CLICK_TIMEOUT    600
@@ -234,24 +235,24 @@ static void on_tree_view_row_activated(GtkTreeView* tv, GtkTreePath* path, GtkTr
     }
 }
 
-static void fm_folder_view_init(FmFolderView *self)
+static void fm_folder_view_init(FmFolderView *fv)
 {
-    gtk_scrolled_window_set_hadjustment((GtkScrolledWindow*)self, NULL);
-    gtk_scrolled_window_set_vadjustment((GtkScrolledWindow*)self, NULL);
-    gtk_scrolled_window_set_policy((GtkScrolledWindow*)self, GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_hadjustment((GtkScrolledWindow*)fv, NULL);
+    gtk_scrolled_window_set_vadjustment((GtkScrolledWindow*)fv, NULL);
+    gtk_scrolled_window_set_policy((GtkScrolledWindow*)fv, GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
     /* config change notifications */
-    g_signal_connect(fm_config, "changed::single_click", G_CALLBACK(on_single_click_changed), self);
+    g_signal_connect(fm_config, "changed::single_click", G_CALLBACK(on_single_click_changed), fv);
 
     /* dnd support */
-    self->dnd_src = fm_dnd_src_new(NULL);
-    g_signal_connect(self->dnd_src, "data-get", G_CALLBACK(on_dnd_src_data_get), self);
+    fv->dnd_src = fm_dnd_src_new(NULL);
+    g_signal_connect(fv->dnd_src, "data-get", G_CALLBACK(on_dnd_src_data_get), fv);
 
-    self->dnd_dest = fm_dnd_dest_new(NULL);
+    fv->dnd_dest = fm_dnd_dest_new(NULL);
 
-    self->mode = -1;
-    self->sort_type = GTK_SORT_ASCENDING;
-    self->sort_by = COL_FILE_NAME;
+    fv->mode = -1;
+    fv->sort_type = GTK_SORT_ASCENDING;
+    fv->sort_by = COL_FILE_NAME;
 }
 
 
@@ -277,48 +278,54 @@ static void unset_model(FmFolderView* fv)
 static void unset_view(FmFolderView* fv);
 static void fm_folder_view_dispose(GObject *object)
 {
-    FmFolderView *self;
+    FmFolderView *fv;
     g_return_if_fail(object != NULL);
     g_return_if_fail(FM_IS_FOLDER_VIEW(object));
-    self = (FmFolderView*)object;
-    /* g_debug("fm_folder_view_dispose: %p", self); */
+    fv = (FmFolderView*)object;
+    /* g_debug("fm_folder_view_dispose: %p", fv); */
 
-    unset_model(self);
+    unset_model(fv);
 
-    if(G_LIKELY(self->view))
-        unset_view(self);
+    if(G_LIKELY(fv->view))
+        unset_view(fv);
 
-    if(self->cached_selected_files)
+    if(fv->cached_selected_files)
     {
-        fm_file_info_list_unref(self->cached_selected_files);
-        self->cached_selected_files = NULL;
+        fm_file_info_list_unref(fv->cached_selected_files);
+        fv->cached_selected_files = NULL;
     }
 
-    if(self->cached_selected_file_paths)
+    if(fv->cached_selected_file_paths)
     {
-        fm_path_list_unref(self->cached_selected_file_paths);
-        self->cached_selected_file_paths = NULL;
+        fm_path_list_unref(fv->cached_selected_file_paths);
+        fv->cached_selected_file_paths = NULL;
     }
 
-    if(self->dnd_src)
+	if(fv->sel_changed_timeout)
+	{
+		g_source_remove(fv->sel_changed_timeout);
+		fv->sel_changed_timeout = 0;
+	}
+
+    if(fv->dnd_src)
     {
-        g_signal_handlers_disconnect_by_func(self->dnd_src, on_dnd_src_data_get, self);
-        g_object_unref(self->dnd_src);
-        self->dnd_src = NULL;
+        g_signal_handlers_disconnect_by_func(fv->dnd_src, on_dnd_src_data_get, fv);
+        g_object_unref(fv->dnd_src);
+        fv->dnd_src = NULL;
     }
-    if(self->dnd_dest)
+    if(fv->dnd_dest)
     {
-        g_object_unref(self->dnd_dest);
-        self->dnd_dest = NULL;
+        g_object_unref(fv->dnd_dest);
+        fv->dnd_dest = NULL;
     }
 
     g_signal_handlers_disconnect_by_func(fm_config, on_single_click_changed, object);
-    cancel_pending_row_activated(self); /* this frees activated_row_ref */
+    cancel_pending_row_activated(fv); /* this frees activated_row_ref */
 
-    if(self->icon_size_changed_handler)
+    if(fv->icon_size_changed_handler)
     {
-        g_signal_handler_disconnect(fm_config, self->icon_size_changed_handler);
-        self->icon_size_changed_handler = 0;
+        g_signal_handler_disconnect(fm_config, fv->icon_size_changed_handler);
+        fv->icon_size_changed_handler = 0;
     }
     (* G_OBJECT_CLASS(fm_folder_view_parent_class)->dispose)(object);
 }
@@ -894,11 +901,28 @@ FmPathList* fm_folder_view_dup_selected_file_paths(FmFolderView* fv)
     return fm_path_list_ref(fv->cached_selected_file_paths);
 }
 
+static gboolean on_sel_changed_emission_timeout(gpointer user_data)
+{
+	FmFolderView* fv = FM_FOLDER_VIEW(user_data);
+    FmFileInfoList* files;
+g_print("on_sel_chaned\n");
+
+    /* if someone is connected to our "sel-changed" signal. */
+    if(g_signal_has_handler_pending(fv, signals[SEL_CHANGED], 0, TRUE))
+    {
+        /* get currently selected files, and cached them inside fm_folder_view_dup_selected_files(). */
+        files = fm_folder_view_dup_selected_files(fv);
+
+        /* emit a selection changed notification to the world. */
+        g_signal_emit(fv, signals[SEL_CHANGED], 0, files);
+        fm_file_info_list_unref(files);
+    }
+    fv->sel_changed_timeout = 0;
+	return FALSE;
+}
+
 static void on_sel_changed(GObject* obj, FmFolderView* fv)
 {
-    /* FIXME: this is inefficient, but currently there is no better way */
-    FmFileInfoList* files;
-
     /* clear cached selected files */
     if(fv->cached_selected_files)
     {
@@ -911,16 +935,13 @@ static void on_sel_changed(GObject* obj, FmFolderView* fv)
         fv->cached_selected_file_paths = NULL;
     }
 
-    /* if someone is connected to our "sel-changed" signal. */
-    if(g_signal_has_handler_pending(fv, signals[SEL_CHANGED], 0, TRUE))
-    {
-        /* get currently selected files, and cached them inside fm_folder_view_dup_selected_files(). */
-        files = fm_folder_view_dup_selected_files(fv);
-
-        /* emit a selection changed notification to the world. */
-        g_signal_emit(fv, signals[SEL_CHANGED], 0, files);
-        fm_file_info_list_unref(files);
-    }
+	/* queue signal emission */
+	if(fv->sel_changed_timeout)
+	{
+		g_source_remove(fv->sel_changed_timeout);
+		fv->sel_changed_timeout = 0;
+	}
+	fv->sel_changed_timeout = g_timeout_add(200, on_sel_changed_emission_timeout, (gpointer)fv);
 }
 
 static void on_sort_col_changed(GtkTreeSortable* sortable, FmFolderView* fv)
