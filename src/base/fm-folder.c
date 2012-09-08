@@ -52,36 +52,6 @@ enum {
     N_SIGNALS
 };
 
-struct _FmFolder
-{
-    GObject parent;
-
-    /*<private>*/
-    FmPath* dir_path;
-    GFile* gf;
-    GFileMonitor* mon;
-    FmDirListJob* dirlist_job;
-    FmFileInfo* dir_fi;
-    FmFileInfoList* files;
-
-    /* for file monitor */
-    guint idle_handler;
-    GSList* files_to_add;
-    GSList* files_to_update;
-    GSList* files_to_del;
-    GSList* pending_jobs;
-    gboolean pending_change_notify;
-    gboolean filesystem_info_pending;
-    guint idle_reload_handler;
-
-    /* filesystem info - set in query thread, read in main */
-    guint64 fs_total_size;
-    guint64 fs_free_size;
-    GCancellable* fs_size_cancellable;
-    gboolean has_fs_info : 1;
-    gboolean fs_info_not_avail : 1;
-};
-
 static FmFolder* fm_folder_new_internal(FmPath* path, GFile* gf);
 static FmFolder* fm_folder_get_internal(FmPath* path, GFile* gf);
 static void fm_folder_dispose(GObject *object);
