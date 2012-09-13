@@ -44,9 +44,8 @@ typedef enum
     FM_PATH_IS_VIRTUAL = 1<<2, /* This path is virtual and it doesn't exist on real filesystem */
     FM_PATH_IS_TRASH = 1<<3, /* This path is under trash:/// */
     FM_PATH_IS_XDG_MENU = 1<<4, /* This path is under menu:/// */
-
+    FM_PATH_IS_SEARCH = 1<<5, /* This path is under search:// (added in 1.0.2) */
     /* reserved for future use */
-    FM_PATH_IS_RESERVED1 = 1<<5,
     FM_PATH_IS_RESERVED2 = 1<<6,
     FM_PATH_IS_RESERVED3 = 1<<7,
 } FmPathFlags;
@@ -96,6 +95,7 @@ gboolean fm_path_has_prefix(FmPath* path, FmPath* prefix);
 #define fm_path_is_virtual(path) ((fm_path_get_flags(path)&FM_PATH_IS_VIRTUAL)!=0)
 #define fm_path_is_local(path) ((fm_path_get_flags(path)&FM_PATH_IS_LOCAL)!=0)
 #define fm_path_is_xdg_menu(path) ((fm_path_get_flags(path)&FM_PATH_IS_XDG_MENU)!=0)
+#define fm_path_is_search(path) ((fm_path_get_flags(path)&FM_PATH_IS_SEARCH)!=0)
 
 char* fm_path_to_str(FmPath* path);
 char* fm_path_to_uri(FmPath* path);
