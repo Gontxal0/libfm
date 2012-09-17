@@ -299,13 +299,11 @@ libfm_demo_SOURCES = \
 
 libfm_demo_CFLAGS = \
 	$(GTK_CFLAGS) \
-	$(MENU_CACHE_CFLAGS) \
 	-Werror-implicit-function-declaration \
 	$(NULL)
 
 libfm_demo_LDADD = \
 	$(GTK_LIBS) \
-	$(MENU_CACHE_LIBS) \
 	$(INTLLIBS) \
 	libfm.la \
 	libfm-gtk.la \
@@ -317,13 +315,11 @@ libfm_file_search_cli_demo_SOURCES = \
 
 libfm_file_search_cli_demo_CFLAGS = \
 	$(GTK_CFLAGS) \
-	$(MENU_CACHE_CFLAGS) \
 	-Werror-implicit-function-declaration \
 	$(NULL)
 
 libfm_file_search_cli_demo_LDADD = \
 	$(GTK_LIBS) \
-	$(MENU_CACHE_LIBS) \
 	$(INTLLIBS) \
 	libfm.la \
 	libfm-gtk.la \

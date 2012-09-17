@@ -535,7 +535,7 @@ static void fm_dir_list_job_finished(FmJob* job)
  *
  * Returns: (transfer none): FmPath for the directory.
  *
- * Since: 0.1.2
+ * Since: 1.0.2
  */
 FmPath* fm_dir_list_job_get_dir_path(FmDirListJob* job)
 {
@@ -550,7 +550,7 @@ FmPath* fm_dir_list_job_get_dir_path(FmDirListJob* job)
  *
  * Returns: (transfer none): FmFileInfo for the directory.
  *
- * Since: 0.1.2
+ * Since: 1.0.2
  */
 FmFileInfo* fm_dir_list_job_get_dir_info(FmDirListJob* job)
 {
@@ -565,9 +565,11 @@ FmFileInfo* fm_dir_list_job_get_dir_info(FmDirListJob* job)
  * only from #FmJob::finished signal handler. Returned data is owned by
  * the @job and should be not freed by caller.
  *
+ * Before 1.0.1 this call had name fm_dir_dist_job_get_files due to typo.
+ *
  * Returns: (transfer none): list of gathered data.
  *
- * Since: 0.1.1
+ * Since: 0.1.0
  */
 FmFileInfoList* fm_dir_list_job_get_files(FmDirListJob* job)
 {
@@ -578,19 +580,15 @@ FmFileInfoList* fm_dir_list_job_get_files(FmDirListJob* job)
  * fm_dir_dist_job_get_files
  * @job: the job that collected listing
  *
- * Retrieves gathered listing from the @job. This function may be called
- * only from #FmJob::finished signal handler. Returned data is owned by
- * the @job and should be not freed by caller.
- *
- * Returns: (transfer none): list of gathered data.
- *
  * There is a typo in the function name. It should have been 
  * fm_dir_list_job_get_files(). The one with typo is kept here for backward
  * compatibility and will be removed later.
  *
  * Since: 0.1.0
+ *
+ * Deprecated: 1.0.1: Use fm_dir_list_job_get_files() instead.
  */
-G_DEPRECATED FmFileInfoList* fm_dir_dist_job_get_files(FmDirListJob* job)
+FmFileInfoList* fm_dir_dist_job_get_files(FmDirListJob* job)
 {
     return fm_dir_list_job_get_files(job);
 }
@@ -646,7 +644,7 @@ static gpointer queue_add_file(FmJob* fmjob, gpointer user_data)
  * for the newly found files after several new files are added.
  * See the document for "files-found" signal for more detail.
  *
- * Since: 0.1.2
+ * Since: 1.0.2
  */
 void fm_dir_list_job_add_found_file(FmDirListJob* job, FmFileInfo* file)
 {
@@ -663,7 +661,7 @@ void fm_dir_list_job_add_found_file(FmDirListJob* job, FmFileInfo* file)
  * This API is called by the implementation of FmDirListJob only.
  * Application developers should not use this API most of the time.
  *
- * Since: 0.1.2
+ * Since: 1.0.2
  */
 void fm_dir_list_job_set_dir_path(FmDirListJob* job, FmPath* path)
 {
@@ -680,7 +678,7 @@ void fm_dir_list_job_set_dir_path(FmDirListJob* job, FmPath* path)
  * This API is called by the implementation of FmDirListJob only.
  * Application developers should not use this API most of the time.
  *
- * Since: 0.1.2
+ * Since: 1.0.2
  */
 void fm_dir_list_job_set_dir_info(FmDirListJob* job, FmFileInfo* info)
 {
