@@ -873,6 +873,12 @@ guint fm_path_hash(FmPath* path)
     return hash;
 }
 
+/* this is not equal to fm_path_compare()==0
+ * fm_path_equal is optimized for equality
+ * while fm_path_compare() needs to determine
+ * orders of two items, which is slower.
+ * When you only care about equality, not orders,
+ * use this. */
 gboolean fm_path_equal(FmPath* p1, FmPath* p2)
 {
     if(p1 == p2)
@@ -885,6 +891,33 @@ gboolean fm_path_equal(FmPath* p1, FmPath* p2)
         return FALSE;
     return fm_path_equal( p1->parent, p2->parent);
 }
+
+/**
+ * fm_path_compare
+ * @p1: path 1
+ * @p2: path 2
+ *
+ * Compare two paths to determine their orders, mainly used for sorting.
+ * 
+ * Returns -1 if @p1 is less than @p2, 0 if they're equal, and +1 if
+ * @p1 is greater than @p2.
+ * Since: 1.0.2
+ */
+int fm_path_compare(FmPath* p1, FmPath* p2)
+{
+    int result;
+    if(p1 == p2)
+        return 0;
+    if(!p1) /* if p2 is also NULL then p1==p2 and that is handled above */
+        return -1;
+    if(!p2) /* case of p1==NULL handled above */
+        return 1;
+    result = fm_path_compare(p1->parent, p2->parent);
+    if(result == 0) /* if parent paths are equal, compare children */
+        result = strcmp(p1->name, p2->name);
+    return result;
+}
+
 
 /* Check if this path contains absolute pathname str*/
 gboolean fm_path_equal_str(FmPath *path, const gchar *str, int n)
