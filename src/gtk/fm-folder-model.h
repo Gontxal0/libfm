@@ -59,8 +59,8 @@ G_BEGIN_DECLS
 typedef enum {
     /* visible columns in the view */
     FM_FOLDER_MODEL_COL_NAME = 0,
-    FM_FOLDER_MODEL_COL_SIZE,
     FM_FOLDER_MODEL_COL_DESC,
+    FM_FOLDER_MODEL_COL_SIZE,
     FM_FOLDER_MODEL_COL_PERM,
     FM_FOLDER_MODEL_COL_OWNER,
     FM_FOLDER_MODEL_COL_MTIME,
@@ -148,6 +148,7 @@ gboolean fm_folder_model_find_iter_by_filename( FmFolderModel* model, GtkTreeIte
 void fm_folder_model_set_icon_size(FmFolderModel* model, guint icon_size);
 guint fm_folder_model_get_icon_size(FmFolderModel* model);
 
+const char* fm_folder_model_get_column_title(FmFolderModelCol col_id);
 
 /* void fm_folder_model_set_thumbnail_size(FmFolderModel* model, guint size); */
 
