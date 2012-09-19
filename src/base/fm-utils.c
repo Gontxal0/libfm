@@ -24,12 +24,15 @@
 #include <config.h>
 #endif
 
+#define _GNU_SOURCE /* needed for strcasestr() */
+
 #include <glib/gi18n-lib.h>
 #include <libintl.h>
 #include <gio/gdesktopappinfo.h>
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <string.h>
 #include "fm-utils.h"
 #include "fm-file-info-job.h"
@@ -301,3 +304,27 @@ int fm_app_command_parse(const char* cmd, const FmAppCommandParseOption* opts,
     *ret = g_string_free(buf, FALSE);
     return hits;
 }
+
+#ifdef HAVE_STRCASESTR
+
+/* use strcasestr() of the system if available */
+char* fm_strcasestr(const char* haystack, const char* needle)
+{
+    return strcasestr(haystack, needle);
+}
+
+#else
+/* If strcasestr is not available, use our own less efficient replacement */
+
+char* fm_strcasestr(const char* haystack, const char* needle)
+{
+    int needle_len = strlen(needle);
+    for(; *haystack; ++haystack)
+    {
+        if(strncasecmp(haystack, needle, needle_len) == 0)
+            return haystack;
+    }
+    return NULL;
+}
+
+#endif

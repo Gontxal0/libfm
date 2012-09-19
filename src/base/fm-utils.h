@@ -50,6 +50,8 @@ char* fm_canonicalize_filename(const char* filename, const char* cwd);
 
 char* fm_strdup_replace(char* str, char* old_str, char* new_str);
 
+char* fm_strcasestr(const char* haystack, const char* needle);
+
 G_END_DECLS
 
 #endif

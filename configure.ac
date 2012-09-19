@@ -45,6 +45,10 @@ AC_HEADER_STDC
 # Checks for typedefs, structures, and compiler characteristics.
 
 # Checks for library functions.
+
+# strcasestr()
+AC_CHECK_FUNCS([strcasestr])
+
 dnl AC_FUNC_MMAP
 AC_SEARCH_LIBS([pow], [m])
 
