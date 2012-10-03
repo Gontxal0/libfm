@@ -91,9 +91,6 @@ typedef enum {
 typedef FmFolderModelCol    FmFolderModelViewCol;
 #endif
 
-#define FM_TYPE_FOLDER_MODEL_COL (fm_folder_model_col_get_type())
-GType fm_folder_model_col_get_type();
-
 /* TODO: unified FmFolderModelSortMode
 #define FM_FOLDER_MODEL_COL_MASK 0x0f
 #define FM_FOLDER_MODEL_COL_DESCENDING 0x10
@@ -151,9 +148,15 @@ gboolean fm_folder_model_find_iter_by_filename( FmFolderModel* model, GtkTreeIte
 void fm_folder_model_set_icon_size(FmFolderModel* model, guint icon_size);
 guint fm_folder_model_get_icon_size(FmFolderModel* model);
 
-const char* fm_folder_model_get_column_title(FmFolderModelCol col_id);
-
 /* void fm_folder_model_set_thumbnail_size(FmFolderModel* model, guint size); */
+
+const char* fm_folder_model_col_get_title(FmFolderModelCol col_id);
+
+gboolean fm_folder_model_col_is_sortable(FmFolderModelViewCol col_id);
+
+const char* fm_folder_model_col_to_str(FmFolderModelCol col_id);
+
+FmFolderModelCol fm_folder_model_col_from_str(const char* str);
 
 G_END_DECLS
 
