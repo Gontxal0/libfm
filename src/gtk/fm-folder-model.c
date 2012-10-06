@@ -57,8 +57,9 @@ struct _FmFolderModel
 
     gboolean show_hidden : 1;
 
-    int sort_col;
-    GtkSortType sort_order;
+    FmFolderModelCol sort_col;
+    FmFolderModelSortMode sort_mode;
+
     /* Random integer to check whether an iter belongs to our model */
     gint stamp;
 
@@ -144,7 +145,7 @@ static void fm_folder_model_set_default_sort_func(GtkTreeSortable *sortable,
                                                   GtkTreeIterCompareFunc sort_func,
                                                   gpointer user_data,
                                                   GDestroyNotify destroy);
-static void fm_folder_model_sort(FmFolderModel* model);
+static void fm_folder_model_do_sort(FmFolderModel* model);
 
 /* signal handlers */
 
@@ -167,7 +168,7 @@ typedef struct
 } FmFolderModelInfo;
 
 static FmFolderModelInfo column_infos[] = {
-	/* columns visible to the users */
+     /* columns visible to the users */
     {0, "name", N_("Name"), TRUE }, /* FM_FOLDER_MODEL_COL_NAME */
     {0, "desc", N_("Description"), TRUE }, /* FM_FOLDER_MODEL_COL_DESC */
     {0, "size", N_("Size"), TRUE }, /* FM_FOLDER_MODEL_COL_SIZE */
@@ -190,7 +191,7 @@ static guint signals[N_SIGNALS];
 
 static void fm_folder_model_init(FmFolderModel* model)
 {
-    model->sort_order = -1;
+    model->sort_mode = FM_FOLDER_MODEL_SORT_ASCENDING;
     model->sort_col = GTK_TREE_SORTABLE_UNSORTED_SORT_COLUMN_ID;
     /* Random int to check whether an iter belongs to our model */
     model->stamp = g_random_int();
@@ -253,12 +254,12 @@ static void fm_folder_model_tree_model_init(GtkTreeModelIface *iface)
     iface->iter_nth_child = fm_folder_model_iter_nth_child;
     iface->iter_parent = fm_folder_model_iter_parent;
 
-	/* GType value is actually generated at runtime by
-	 * calling _get_type() functions for every type.
-	 * So they should not be filled at compile-time.
-	 * Though G_TYPE_STRING and other fundimental type ids
-	 * are known at compile-time, this behavior is not 
-	 * guaranteed to be true in newer glib. */
+     /* GType value is actually generated at runtime by
+      * calling _get_type() functions for every type.
+      * So they should not be filled at compile-time.
+      * Though G_TYPE_STRING and other fundimental type ids
+      * are known at compile-time, this behavior is not 
+      * guaranteed to be true in newer glib. */
 
     /* visible columns in the view */
     column_infos[FM_FOLDER_MODEL_COL_NAME].type= G_TYPE_STRING;
@@ -277,7 +278,7 @@ static void fm_folder_model_tree_model_init(GtkTreeModelIface *iface)
 
 static void fm_folder_model_tree_sortable_init(GtkTreeSortableIface *iface)
 {
-    /* iface->sort_column_changed = fm_folder_model_sort_column_changed; */
+    /* iface->sort_column_changed = fm_folder_model_do_sort_column_changed; */
     iface->get_sort_column_id = fm_folder_model_get_sort_column_id;
     iface->set_sort_column_id = fm_folder_model_set_sort_column_id;
     iface->set_sort_func = fm_folder_model_set_sort_func;
@@ -793,7 +794,7 @@ static gboolean fm_folder_model_get_sort_column_id(GtkTreeSortable* sortable,
     if( sort_column_id )
         *sort_column_id = model->sort_col;
     if( order )
-        *order = model->sort_order;
+        *order = model->sort_mode & FM_FOLDER_MODEL_SORT_ASCENDING ? GTK_SORT_ASCENDING : GTK_SORT_DESCENDING;
     return TRUE;
 }
 
@@ -802,12 +803,13 @@ static void fm_folder_model_set_sort_column_id(GtkTreeSortable* sortable,
                                                GtkSortType order)
 {
     FmFolderModel* model = FM_FOLDER_MODEL(sortable);
-    if( model->sort_col == sort_column_id && model->sort_order == order )
-        return;
-    model->sort_col = sort_column_id;
-    model->sort_order = order;
-    gtk_tree_sortable_sort_column_changed(sortable);
-    fm_folder_model_sort(model);
+    FmFolderModelSortMode mode = model->sort_mode;
+    mode &= ~FM_FOLDER_MODEL_SORT_ORDER_MASK;
+    if(order == GTK_SORT_ASCENDING)
+        mode |= FM_FOLDER_MODEL_SORT_ASCENDING;
+    else
+        mode |= FM_FOLDER_MODEL_SORT_DESCENDING;
+    fm_folder_model_sort(model, sort_column_id, mode);
 }
 
 static void fm_folder_model_set_sort_func(GtkTreeSortable *sortable,
@@ -829,8 +831,9 @@ static void fm_folder_model_set_default_sort_func(GtkTreeSortable *sortable,
 
 static gint fm_folder_model_compare(gconstpointer item1,
                                     gconstpointer item2,
-                                    gpointer model)
+                                    gpointer user_data)
 {
+     FmFolderModel* model = FM_FOLDER_MODEL(user_data);
     FmFileInfo* file1 = ((FmFolderItem*)item1)->inf;
     FmFileInfo* file2 = ((FmFolderItem*)item2)->inf;
     const char* key1;
@@ -889,10 +892,10 @@ _sort_by_name:
         ret = g_strcmp0(key1, key2);
         break;
     }
-    return ((FmFolderModel*)model)->sort_order == GTK_SORT_ASCENDING ? ret : -ret;
+    return (model->sort_mode & FM_FOLDER_MODEL_SORT_ASCENDING) ? ret : -ret;
 }
 
-static void fm_folder_model_sort(FmFolderModel* model)
+static void fm_folder_model_do_sort(FmFolderModel* model)
 {
     GHashTable* old_order;
     gint *new_order;
@@ -1524,6 +1527,28 @@ gpointer fm_folder_model_get_item_userdata(FmFolderModel* model, GtkTreeIter* it
     return item->userdata;
 }
 
+void fm_folder_model_sort(FmFolderModel* model, FmFolderModelCol col, FmFolderModelSortMode mode)
+{
+	if(model->sort_mode != mode || model->sort_col != col)
+	{
+		GtkSortType old_order = (model->sort_mode & FM_FOLDER_MODEL_SORT_ASCENDING) ? GTK_SORT_ASCENDING : GTK_SORT_DESCENDING;
+		GtkSortType order = (mode & FM_FOLDER_MODEL_SORT_ASCENDING) ? GTK_SORT_ASCENDING : GTK_SORT_DESCENDING;
+		FmFolderModelCol old_col = model->sort_col;
+		model->sort_mode = mode;
+		model->sort_col = col;
+		if(old_order != order || old_col != col) /* sort order or column is changed */
+			gtk_tree_sortable_sort_column_changed(GTK_TREE_SORTABLE(model));
+		fm_folder_model_do_sort(model);
+	}
+}
+
+FmFolderModelSortMode fm_folder_model_get_sort_mode(FmFolderModel* model)
+{
+    return model->sort_mode;
+}
+
+
+/* FmFolderModelCol APIs */
 
 /**
  * fm_folder_model_col_get_title
@@ -1572,8 +1597,8 @@ gboolean fm_folder_model_col_is_sortable(FmFolderModelViewCol col_id)
 const char* fm_folder_model_col_to_str(FmFolderModelCol col_id)
 {
     if(G_UNLIKELY(col_id < 0 || col_id >= FM_FOLDER_MODEL_N_COLS)) /* invalid id */
-        return NULL;	
-	return column_infos[col_id].name;
+        return NULL;     
+    return column_infos[col_id].name;
 }
 
 /**
@@ -1586,17 +1611,17 @@ const char* fm_folder_model_col_to_str(FmFolderModelCol col_id)
  */
 FmFolderModelCol fm_folder_model_col_from_str(const char* str)
 {
-	/* if further optimization is wanted, can use a sorted string array
-	 * and binary search here, but I think this micro-optimization is unnecessary. */
-	if(G_LIKELY(str != NULL))
-	{
-		FmFolderModelCol i = 0;
-		for(i = 0; i < FM_FOLDER_MODEL_N_COLS; ++i)
-		{
-			if(strcmp(str, column_infos[i].name) == 0)
-				return i;
-		}
-	}
-	return (FmFolderModelCol)-1;
+    /* if further optimization is wanted, can use a sorted string array
+     * and binary search here, but I think this micro-optimization is unnecessary. */
+    if(G_LIKELY(str != NULL))
+    {
+        FmFolderModelCol i = 0;
+        for(i = 0; i < FM_FOLDER_MODEL_N_COLS; ++i)
+        {
+            if(strcmp(str, column_infos[i].name) == 0)
+                return i;
+        }
+    }
+    return (FmFolderModelCol)-1;
 }
 
