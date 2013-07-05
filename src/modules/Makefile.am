@@ -22,6 +22,7 @@ pkglib_LTLIBRARIES = \
 	vfs-search.la \
 	gtk-fileprop-x-desktop.la \
 	gtk-menu-actions.la \
+	gtk-menu-trash.la \
 	$(NULL)
 
 # module-specific parameters
@@ -31,6 +32,9 @@ vfs_menu_la_LIBADD = $(MENU_CACHE_LIBS) $(top_builddir)/src/libfm-extra.la
 gtk_menu_actions_la_CFLAGS = -I../actions $(GTK_CFLAGS) -I../gtk
 gtk_menu_actions_la_LIBADD = $(LIBFMACTIONS) $(GTK_LIBS)
 gtk_menu_actions_la_DEPENDENCIES_EXTRA = $(LIBFMACTIONS)
+
+gtk_menu_trash_la_CFLAGS = $(GTK_CFLAGS) -I../gtk
+gtk_menu_trash_la_LIBADD = $(GTK_LIBS)
 
 gtk_fileprop_x_desktop_la_CFLAGS = $(GTK_CFLAGS) -I../gtk
 gtk_fileprop_x_desktop_la_LIBADD = $(GTK_LIBS)
