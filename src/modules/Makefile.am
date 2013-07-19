@@ -26,6 +26,7 @@ pkglib_LTLIBRARIES = \
 
 if HAVE_ACTIONS
 pkglib_LTLIBRARIES += gtk-menu-actions.la
+LIBFMACTIONS = $(top_builddir)/src/actions/libfmactions.la
 endif
 
 # module-specific parameters
