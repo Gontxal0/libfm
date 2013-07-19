@@ -21,9 +21,12 @@ pkglib_LTLIBRARIES = \
 	vfs-menu.la \
 	vfs-search.la \
 	gtk-fileprop-x-desktop.la \
-	gtk-menu-actions.la \
 	gtk-menu-trash.la \
 	$(NULL)
+
+if HAVE_ACTIONS
+pkglib_LTLIBRARIES += gtk-menu-actions.la
+endif
 
 # module-specific parameters
 vfs_menu_la_CFLAGS = $(MENU_CACHE_CFLAGS) -I../extra
