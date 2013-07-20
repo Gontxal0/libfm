@@ -2,6 +2,7 @@
  *      fm-file-info-job.c
  *
  *      Copyright 2009 PCMan <pcman.tw@gmail.com>
+ *      Copyright 2013 Andriy Grytsenko (LStranger) <andrej@rep.kiev.ua>
  *
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -44,6 +45,13 @@ static gboolean fm_file_info_job_run(FmJob* fmjob);
 
 const char gfile_info_query_attribs[]="standard::*,unix::*,time::*,access::*,id::filesystem";
 
+enum {
+    GOT_INFO,
+    N_SIGNALS
+};
+
+static int signals[N_SIGNALS];
+
 G_DEFINE_TYPE(FmFileInfoJob, fm_file_info_job, FM_TYPE_JOB);
 
 static void fm_file_info_job_class_init(FmFileInfoJobClass *klass)
@@ -57,6 +65,26 @@ static void fm_file_info_job_class_init(FmFileInfoJobClass *klass)
 
     job_class = FM_JOB_CLASS(klass);
     job_class->run = fm_file_info_job_run;
+
+    /**
+     * FmDirInfoJob::got-info
+     * @job: a job that emitted the signal
+     * @info: #FmFileInfo of file which info is completed
+     *
+     * The #FmDirInfoJob::got-info signal is emitted for every file info
+     * during a job with FM_FILE_INFO_JOB_EMIT_FOR_EACH_FILE flag set.
+     * This signal may be emitted only if info retrieving was successful.
+     *
+     * Since: 1.2.0
+     */
+    signals[GOT_INFO] =
+        g_signal_new("got-info",
+                     G_TYPE_FROM_CLASS(klass),
+                     G_SIGNAL_RUN_LAST,
+                     G_STRUCT_OFFSET(FmFileInfoJobClass, got_info),
+                     NULL, NULL,
+                     g_cclosure_marshal_VOID__POINTER,
+                     G_TYPE_NONE, 1, G_TYPE_POINTER);
 }
 
 
@@ -121,6 +149,13 @@ FmFileInfoJob* fm_file_info_job_new(FmPathList* files_to_query, FmFileInfoJobFla
     return job;
 }
 
+static gpointer _emit_current_file(FmJob* job, gpointer user_data)
+{
+    /* this callback is called from the main thread */
+    g_signal_emit(job, signals[GOT_INFO], 0, user_data);
+    return NULL;
+}
+
 static gboolean fm_file_info_job_run(FmJob* fmjob)
 {
     GList* l;
@@ -156,6 +191,8 @@ static gboolean fm_file_info_job_run(FmJob* fmjob)
 
                 fm_file_info_list_delete_link(job->file_infos, l); /* also calls unref */
             }
+            else if(G_UNLIKELY(job->flags & FM_FILE_INFO_JOB_EMIT_FOR_EACH_FILE))
+                fm_job_call_main_thread(fmjob, _emit_current_file, fi);
             g_free(path_str);
         }
         else
@@ -195,6 +232,8 @@ static gboolean fm_file_info_job_run(FmJob* fmjob)
                 fm_file_info_list_delete_link(job->file_infos, l); /* also calls unref */
               }
             }
+            else if(G_UNLIKELY(job->flags & FM_FILE_INFO_JOB_EMIT_FOR_EACH_FILE))
+                fm_job_call_main_thread(fmjob, _emit_current_file, fi);
             g_object_unref(gf);
         }
         l = next;
