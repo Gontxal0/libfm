@@ -36,6 +36,7 @@
 #include "fm-marshal.h"
 #include "fm-dummy-monitor.h"
 #include "fm-file.h"
+#include "glib-compat.h"
 
 #include <string.h>
 
@@ -63,6 +64,7 @@ struct _FmFolder
     GFile* gf;
     GFileMonitor* mon;
     FmDirListJob* dirlist_job;
+    FmFileInfoJob *mime_info_job;
     FmFileInfo* dir_fi;
     FmFileInfoList* files;
 
@@ -72,6 +74,7 @@ struct _FmFolder
     GSList* files_to_update;
     GSList* files_to_del;
     GSList* pending_jobs;
+    GSList* files_to_update_mime;
     gboolean pending_change_notify;
     gboolean filesystem_info_pending;
     gboolean wants_incremental;
@@ -89,8 +92,6 @@ static FmFolder* fm_folder_new_internal(FmPath* path, GFile* gf);
 static FmFolder* fm_folder_get_internal(FmPath* path, GFile* gf);
 static void fm_folder_dispose(GObject *object);
 static void fm_folder_content_changed(FmFolder* folder);
-
-static void on_file_info_job_finished(FmFileInfoJob* job, FmFolder* folder);
 
 G_DEFINE_TYPE(FmFolder, fm_folder, G_TYPE_OBJECT);
 
@@ -460,6 +461,14 @@ static gboolean on_idle(FmFolder* folder)
         folder->files_to_add = NULL;
     }
 
+    if(folder->files_to_update_mime)
+    {
+        g_signal_emit(folder, signals[FILES_CHANGED], 0, folder->files_to_update_mime);
+        g_signal_emit(folder, signals[CONTENT_CHANGED], 0);
+        g_slist_free_full(folder->files_to_update_mime, (GDestroyNotify)fm_file_info_unref);
+        folder->files_to_update_mime = NULL;
+    }
+
     if(job)
     {
         g_signal_connect(job, "finished", G_CALLBACK(on_file_info_job_finished), folder);
@@ -657,6 +666,49 @@ static void on_folder_changed(GFileMonitor* mon, GFile* gf, GFile* other, GFileM
     G_UNLOCK(query);
 }
 
+static void on_mime_info_job_got_info(FmFileInfoJob *job, FmFileInfo *info, FmFolder* folder)
+{
+    FmFileInfo *fi2 = fm_folder_get_file_by_name(folder, fm_file_info_get_name(info));
+    gboolean changed;
+
+    if (G_UNLIKELY(fi2 == NULL))
+    {
+        g_warning("got info for file '%s' not within a folder", fm_file_info_get_name(info));
+        return;
+    }
+    changed = FALSE;
+    if (fm_file_info_get_icon(info) != fm_file_info_get_icon(fi2))
+        changed = TRUE;
+    else if (strcmp(fm_file_info_get_disp_name(info), fm_file_info_get_disp_name(fi2)))
+        changed = TRUE;
+    /* g_debug("got update for file '%s': %d", fm_file_info_get_name(info), (int)changed); */
+    fm_file_info_update(fi2, info);
+    if (!changed) /* don't emit change if nothing was updated */
+        return;
+    folder->files_to_update_mime = g_slist_prepend(folder->files_to_update_mime,
+                                                   fm_file_info_ref(fi2));
+    if (g_slist_length(folder->files_to_update_mime) < 200) /* FIXME: is 200 a good number? */
+        return;
+    G_LOCK(query);
+    if(!folder->idle_handler)
+        folder->idle_handler = g_idle_add_full(G_PRIORITY_LOW, (GSourceFunc)on_idle, folder, NULL);
+    G_UNLOCK(query);
+}
+
+static void on_mime_info_job_finished(FmFileInfoJob* job, FmFolder* folder)
+{
+    /* we done with it, just forget it */
+    g_debug("on_mime_info_job_finished");
+    g_object_unref(folder->mime_info_job);
+    folder->mime_info_job = NULL;
+    if (folder->files_to_update_mime == NULL)
+        return;
+    G_LOCK(query);
+    if(!folder->idle_handler)
+        folder->idle_handler = g_idle_add_full(G_PRIORITY_LOW, (GSourceFunc)on_idle, folder, NULL);
+    G_UNLOCK(query);
+}
+
 static void on_dirlist_job_finished(FmDirListJob* job, FmFolder* folder)
 {
     GSList* files = NULL;
@@ -679,10 +731,27 @@ static void on_dirlist_job_finished(FmDirListJob* job, FmFolder* folder)
             GSList *l;
 
             if (fm_path_is_native(folder->dir_path))
+            {
+                if (folder->mime_info_job)
+                {
+                    g_signal_handlers_disconnect_by_func(folder->mime_info_job,
+                                                         on_mime_info_job_got_info, folder);
+                    g_signal_handlers_disconnect_by_func(folder->mime_info_job,
+                                                         on_mime_info_job_finished, folder);
+                    fm_job_cancel(FM_JOB(folder->mime_info_job));
+                    g_object_unref(folder->mime_info_job);
+                }
                 /* we got only basic info on content, schedule update it now */
+                folder->mime_info_job = fm_file_info_job_new(NULL, FM_FILE_INFO_JOB_EMIT_FOR_EACH_FILE);
+                g_signal_connect(folder->mime_info_job, "got-info",
+                                 G_CALLBACK(on_mime_info_job_got_info), folder);
+                g_signal_connect(folder->mime_info_job, "finished",
+                                 G_CALLBACK(on_mime_info_job_finished), folder);
                 for (l = files; l; l = l->next)
-                    folder->files_to_update = g_slist_prepend(folder->files_to_update,
-                                                g_strdup(fm_file_info_get_name(l->data)));
+                    fm_file_info_job_add(folder->mime_info_job,
+                                         fm_file_info_get_path(l->data));
+                fm_job_run_async(FM_JOB(folder->mime_info_job));
+            }
             g_signal_emit(folder, signals[FILES_ADDED], 0, files);
             g_slist_free(files);
         }
@@ -801,6 +870,16 @@ static void fm_folder_dispose(GObject *object)
 
     if(folder->dirlist_job)
         free_dirlist_job(folder);
+    if(folder->mime_info_job)
+    {
+        g_signal_handlers_disconnect_by_func(folder->mime_info_job,
+                                             on_mime_info_job_got_info, folder);
+        g_signal_handlers_disconnect_by_func(folder->mime_info_job,
+                                             on_mime_info_job_finished, folder);
+        fm_job_cancel(FM_JOB(folder->mime_info_job));
+        g_object_unref(folder->mime_info_job);
+        folder->mime_info_job = NULL;
+    }
 
     if(folder->pending_jobs)
     {
@@ -853,6 +932,11 @@ static void fm_folder_dispose(GObject *object)
             g_slist_free(folder->files_to_del);
             folder->files_to_del = NULL;
         }
+    }
+    if(folder->files_to_update_mime)
+    {
+        g_slist_free_full(folder->files_to_update_mime, (GDestroyNotify)fm_file_info_unref);
+        folder->files_to_update_mime = NULL;
     }
 
     if(folder->fs_size_cancellable)
