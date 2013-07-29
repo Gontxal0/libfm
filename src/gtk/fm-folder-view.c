@@ -1925,11 +1925,30 @@ static const FmFolderViewModeInfo _standard_view_modes[] = {
     { _fm_standard_view_new_for_id, "list", NULL, N_("Detailed _List View"), NULL }
 };
 
+/**
+ * fm_folder_view_get_view_n_ids
+ *
+ * Tests how many view modes are known to create #FmFolderView widget.
+ *
+ * Returns: number of known modes for folder view.
+ *
+ * Since: 1.2.0
+ */
 gint fm_folder_view_get_view_n_ids(void)
 {
     return (gint)G_N_ELEMENTS(_standard_view_modes);
 }
 
+/**
+ * fm_folder_view_get_view_id
+ * @fv: the folder view widget to inspect
+ *
+ * Retrieves current layout mode for @fv.
+ *
+ * Returns: view mode id of @fv or -1 if @fv is not #FmFolderView.
+ *
+ * Since: 1.2.0
+ */
 gint fm_folder_view_get_view_id(FmFolderView *fv)
 {
     FmFolderViewInterface* iface;
@@ -1943,6 +1962,16 @@ gint fm_folder_view_get_view_id(FmFolderView *fv)
     return -1;
 }
 
+/**
+ * fm_folder_view_get_view_id_by_name
+ * @name: layout mode name (e.g. "icon")
+ *
+ * Retrieves layout mode by its short name.
+ *
+ * Returns: view mode id or -1 if @name is invalid.
+ *
+ * Since: 1.2.0
+ */
 gint fm_folder_view_get_view_id_by_name(const char *name)
 {
     gint i;
@@ -1955,15 +1984,40 @@ gint fm_folder_view_get_view_id_by_name(const char *name)
     return -1;
 }
 
+/**
+ * fm_folder_view_new_for_id
+ * @old_fv: (allow-none): a folder view to copy data
+ * @id: initial mode of view
+ * @update_popup: (allow-none): callback to update context menu for files
+ * @open_folders: (allow-none): callback to open folder on activation
+ *
+ * Creates new folder view. If @old_fv is not %NULL then new folder view
+ * will inherit data from it such as folder model or selection.
+ *
+ * Returns: (transfer full): new folder view.
+ *
+ * Since: 1.2.0
+ */
 FmFolderView *fm_folder_view_new_for_id(FmFolderView *old_fv, gint id,
                                         FmFolderViewUpdatePopup update_popup,
                                         FmLaunchFolderFunc open_folders)
 {
     if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
-        return NULL;
+        id = 0; /* reset invalid view mode */
     return _standard_view_modes[id].new_for_id(old_fv, id, update_popup, open_folders);
 }
 
+/**
+ * fm_folder_view_get_view_id_name
+ * @id: folder view mode id
+ *
+ * Retrieves short name (such as "icon") for layout @id. Returned data
+ * should not be freed by caller.
+ *
+ * Returns: name or %NULL if @id is invalid.
+ *
+ * Since: 1.2.0
+ */
 const char *fm_folder_view_get_view_id_name(gint id)
 {
     if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
@@ -1971,23 +2025,203 @@ const char *fm_folder_view_get_view_id_name(gint id)
     return _standard_view_modes[id].name;
 }
 
+/**
+ * fm_folder_view_get_view_id_description
+ * @id: folder view mode id
+ *
+ * Retrieves description for layout @id which can be used in menus.
+ * Returned data should not be freed by caller.
+ *
+ * Returns: desription or %NULL if @id is invalid.
+ *
+ * Since: 1.2.0
+ */
 const char *fm_folder_view_get_view_id_description(gint id)
 {
-    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
+    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes) ||
+        _standard_view_modes[id].description == NULL)
         return NULL;
-    return _standard_view_modes[id].description;
+    return _(_standard_view_modes[id].description);
 }
 
+/**
+ * fm_folder_view_get_view_id_tooltip
+ * @id: folder view mode id
+ *
+ * Retrieves description for layout @id which can be used in tooltip.
+ * Returned data should not be freed by caller.
+ *
+ * Returns: detailed description or %NULL if @id is invalid.
+ *
+ * Since: 1.2.0
+ */
 const char *fm_folder_view_get_view_id_tooltip(gint id)
 {
-    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
+    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes) ||
+        _standard_view_modes[id].tooltip == NULL)
         return NULL;
-    return _standard_view_modes[id].tooltip;
+    return _(_standard_view_modes[id].tooltip);
 }
 
+/**
+ * fm_folder_view_get_view_id_icon
+ * @id: folder view mode id
+ *
+ * Retrieves icon name for layout @id which can be used in menus. Returned
+ * data should not be freed by caller.
+ *
+ * Returns: icon name or %NULL if @id is invalid.
+ *
+ * Since: 1.2.0
+ */
 const char *fm_folder_view_get_view_id_icon(gint id)
 {
     if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
         return NULL;
     return _standard_view_modes[id].icon;
+}
+
+/* Compatibility stuff for former fm-standard-view.h */
+
+/**
+ * fm_folder_view_new
+ * @mode: initial mode of view
+ *
+ * Returns: a new #FmFolderView widget.
+ *
+ * Since: 0.1.0
+ * Deprecated: 1.0.1: Use fm_standard_view_new() instead.
+ */
+FmFolderView* fm_folder_view_new(guint mode)
+{
+    return fm_folder_view_new_for_id(NULL, (gint)mode, NULL, NULL);
+}
+
+/**
+ * fm_standard_view_new
+ * @mode: initial mode of view
+ * @update_popup: (allow-none): callback to update context menu for files
+ * @open_folders: (allow-none): callback to open folder on activation
+ *
+ * Creates new folder view.
+ *
+ * Returns: a new #FmStandardView widget.
+ *
+ * Since: 1.0.1
+ */
+FmStandardView* fm_standard_view_new(FmStandardViewMode mode,
+                                     FmFolderViewUpdatePopup update_popup,
+                                     FmLaunchFolderFunc open_folders)
+{
+    return fm_folder_view_new_for_id(NULL, (gint)mode, update_popup, open_folders);
+}
+
+/**
+ * fm_folder_view_set_mode
+ * @fv: a widget to apply
+ * @mode: new mode of view
+ *
+ * Since: 0.1.0
+ * Deprecated: 1.0.1: Use fm_standard_view_set_mode() instead.
+ */
+void fm_folder_view_set_mode(FmFolderView* fv, guint mode)
+{
+    fm_standard_view_set_mode((FmStandardView*)fv, mode);
+}
+
+/**
+ * fm_standard_view_set_mode
+ * @fv: a widget to apply
+ * @mode: new mode of view
+ *
+ * Before 1.0.1 this API had name fm_folder_view_set_mode.
+ *
+ * Changes current view mode for folder in @fv.
+ *
+ * Since: 0.1.0
+ */
+void fm_standard_view_set_mode(FmStandardView* fv, FmStandardViewMode mode)
+{
+    FmFolderViewInterface *iface;
+    FmFolderView *new_fv;
+    FmFolderViewUpdatePopup update_popup;
+    FmLaunchFolderFunc open_folders;
+
+    g_return_if_fail(FM_IS_FOLDER_VIEW(fv));
+
+    iface = FM_FOLDER_VIEW_GET_IFACE(fv);
+    iface->get_custom_menu_callbacks(fv, &update_popup, &open_folders);
+    new_fv = fm_folder_view_new_for_id(fv, (gint)mode, update_popup, open_folders);
+    if (new_fv) /* we got increased reference */
+        g_object_unref(new_fv);
+    if (new_fv != fv)
+        g_warning("fm_standard_view_set_mode() failed to change view mode: "
+                  "the underlying widget doesn't support it");
+}
+
+/**
+ * fm_folder_view_get_mode
+ * @fv: a widget to inspect
+ *
+ * Returns: current mode of view.
+ *
+ * Since: 0.1.0
+ * Deprecated: 1.0.1: Use fm_standard_view_get_mode() instead.
+ */
+guint fm_folder_view_get_mode(FmFolderView* fv)
+{
+    gint mode = fm_standard_view_get_mode(fv);
+
+    return mode < 0 ? 0 : (FmStandardViewMode)mode;
+}
+
+/**
+ * fm_standard_view_get_mode
+ * @fv: a widget to inspect
+ *
+ * Retrieves current view mode for folder in @fv.
+ *
+ * Before 1.0.1 this API had name fm_folder_view_get_mode.
+ *
+ * Returns: current mode of view.
+ *
+ * Since: 0.1.0
+ */
+FmStandardViewMode fm_standard_view_get_mode(FmStandardView* fv)
+{
+    gint mode = fm_folder_view_get_view_id(fv);
+
+    return (mode < 0 || mode > FM_FV_LIST_VIEW) ? 0 : (FmStandardViewMode)mode;
+}
+
+/**
+ * fm_standard_view_mode_to_str
+ * @mode: mode id
+ *
+ * Retrieves string name of rendering @mode. That name may be used for
+ * config save or similar purposes. Returned data are owned by the
+ * implementation and should be not freed by caller.
+ *
+ * Returns: name associated with @mode.
+ *
+ * Since: 1.0.2
+ */
+const char* fm_standard_view_mode_to_str(FmStandardViewMode mode)
+{
+    return fm_folder_view_get_view_id_name(mode);
+}
+
+/**
+ * fm_standard_view_mode_from_str
+ * @str: the name of mode
+ *
+ * Finds mode which have an associated name equal to @str.
+ *
+ * Returns: mode id or (FmStandardViewMode)-1 if no such mode exists.
+ *
+ * Since: 1.0.2
+ */
+FmStandardViewMode fm_standard_view_mode_from_str(const char* str)
+{
+    return (FmStandardViewMode)fm_folder_view_get_view_id_by_name(str);
 }

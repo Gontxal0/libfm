@@ -27,7 +27,6 @@
 
 #include "main-win.h"
 #include "fm-folder-view.h"
-#include "fm-standard-view.h"
 #include "fm-folder-model.h"
 #include "fm-path-entry.h"
 #include "fm-file-menu.h"

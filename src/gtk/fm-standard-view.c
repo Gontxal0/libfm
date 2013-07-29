@@ -40,7 +40,7 @@
 #include "gtk-compat.h"
 
 #include "fm.h"
-#include "fm-standard-view.h"
+#include "fm-folder-view.h"
 #include "fm-gtk-marshal.h"
 #include "fm-cell-renderer-text.h"
 #include "fm-cell-renderer-pixbuf.h"
@@ -53,7 +53,23 @@
 #include "fm-dnd-dest.h"
 #include "fm-dnd-auto-scroll.h"
 
-struct _FmStandardView
+#define FM_FOLDER_STD_VIEW_TYPE             (fm_standard_view_get_type())
+#define FM_FOLDER_STD_VIEW(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj),\
+            FM_FOLDER_STD_VIEW_TYPE, FmFolderStdView))
+#define FM_FOLDER_STD_VIEW_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST((klass),\
+            FM_FOLDER_STD_VIEW_TYPE, FmFolderStdViewClass))
+#define FM_IS_FOLDER_STD_VIEW(obj)          (G_TYPE_CHECK_INSTANCE_TYPE((obj),\
+            FM_FOLDER_STD_VIEW_TYPE))
+#define FM_IS_FOLDER_STD_VIEW_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE((klass),\
+            FM_FOLDER_STD_VIEW_TYPE))
+
+typedef struct _FmFolderStdView             FmFolderStdView;
+typedef struct _FmFolderStdViewClass        FmFolderStdViewClass;
+
+GType       fm_standard_view_get_type(void);
+
+
+struct _FmFolderStdView
 {
     GtkScrolledWindow parent;
 
@@ -63,7 +79,7 @@ struct _FmStandardView
     gboolean show_hidden;
 
     GtkWidget* view; /* either ExoIconView or ExoTreeView */
-    FmFolderModel* model; /* FmStandardView doesn't use abstract GtkTreeModel! */
+    FmFolderModel* model; /* FmFolderStdView doesn't use abstract GtkTreeModel! */
     FmCellRendererPixbuf* renderer_pixbuf;
     FmCellRendererText* renderer_text;
     guint icon_size_changed_handler;
@@ -85,7 +101,7 @@ struct _FmStandardView
 
     /* internal switches */
     void (*set_single_click)(GtkWidget* view, gboolean single_click);
-    GtkTreePath* (*get_drop_path)(FmStandardView* fv, gint x, gint y);
+    GtkTreePath* (*get_drop_path)(FmFolderStdView* fv, gint x, gint y);
     void (*select_all)(GtkWidget* view);
     void (*unselect_all)(GtkWidget* view);
     void (*select_invert)(FmFolderModel* model, GtkWidget* view);
@@ -96,7 +112,7 @@ struct _FmStandardView
     gboolean name_updated;
 };
 
-struct _FmStandardViewClass
+struct _FmFolderStdViewClass
 {
     GtkScrolledWindowClass parent_class;
 
@@ -108,22 +124,24 @@ static void fm_standard_view_dispose(GObject *object);
 
 static void fm_standard_view_view_init(FmFolderViewInterface* iface);
 
-G_DEFINE_TYPE_WITH_CODE(FmStandardView, fm_standard_view, GTK_TYPE_SCROLLED_WINDOW,
+G_DEFINE_TYPE_WITH_CODE(FmFolderStdView, fm_standard_view, GTK_TYPE_SCROLLED_WINDOW,
                         G_IMPLEMENT_INTERFACE(FM_TYPE_FOLDER_VIEW, fm_standard_view_view_init))
 
-static GList* fm_standard_view_get_selected_tree_paths(FmStandardView* fv);
+static GList* fm_standard_view_get_selected_tree_paths(FmFolderStdView* fv);
 
 static gboolean on_standard_view_focus_in(GtkWidget* widget, GdkEventFocus* evt);
 
-static gboolean on_btn_pressed(GtkWidget* view, GdkEventButton* evt, FmStandardView* fv);
-static void on_sel_changed(GObject* obj, FmStandardView* fv);
+static gboolean on_btn_pressed(GtkWidget* view, GdkEventButton* evt, FmFolderStdView* fv);
+static void on_sel_changed(GObject* obj, FmFolderStdView* fv);
 
-static void on_dnd_src_data_get(FmDndSrc* ds, FmStandardView* fv);
+static void on_dnd_src_data_get(FmDndSrc* ds, FmFolderStdView* fv);
 
-static void on_single_click_changed(FmConfig* cfg, FmStandardView* fv);
-static void on_big_icon_size_changed(FmConfig* cfg, FmStandardView* fv);
-static void on_small_icon_size_changed(FmConfig* cfg, FmStandardView* fv);
-static void on_thumbnail_size_changed(FmConfig* cfg, FmStandardView* fv);
+static void on_single_click_changed(FmConfig* cfg, FmFolderStdView* fv);
+static void on_big_icon_size_changed(FmConfig* cfg, FmFolderStdView* fv);
+static void on_small_icon_size_changed(FmConfig* cfg, FmFolderStdView* fv);
+static void on_thumbnail_size_changed(FmConfig* cfg, FmFolderStdView* fv);
+
+static void _fm_standard_view_set_mode(FmFolderStdView* fv, FmStandardViewMode mode);
 
 static FmFolderViewColumnInfo* _sv_column_info_new(FmFolderModelCol col_id)
 {
@@ -137,7 +155,7 @@ static void _sv_column_info_free(gpointer info)
     g_slice_free(FmFolderViewColumnInfo, info);
 }
 
-static void fm_standard_view_class_init(FmStandardViewClass *klass)
+static void fm_standard_view_class_init(FmFolderStdViewClass *klass)
 {
     GObjectClass *g_object_class;
     GtkWidgetClass *widget_class;
@@ -151,7 +169,7 @@ static void fm_standard_view_class_init(FmStandardViewClass *klass)
 
 static gboolean on_standard_view_focus_in(GtkWidget* widget, GdkEventFocus* evt)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(widget);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(widget);
     if( fv->view )
     {
         gtk_widget_grab_focus(fv->view);
@@ -160,13 +178,13 @@ static gboolean on_standard_view_focus_in(GtkWidget* widget, GdkEventFocus* evt)
     return FALSE;
 }
 
-static void on_single_click_changed(FmConfig* cfg, FmStandardView* fv)
+static void on_single_click_changed(FmConfig* cfg, FmFolderStdView* fv)
 {
     if(fv->set_single_click)
         fv->set_single_click(fv->view, cfg->single_click);
 }
 
-static void _select_only_row_and_activate(FmStandardView* fv, GtkTreePath* path)
+static void _select_only_row_and_activate(FmFolderStdView* fv, GtkTreePath* path)
 {
     GtkTreeIter it;
     /* #3578780: activating item is ambiguos when there are more than one item
@@ -178,17 +196,17 @@ static void _select_only_row_and_activate(FmStandardView* fv, GtkTreePath* path)
     fm_folder_view_item_clicked(FM_FOLDER_VIEW(fv), path, FM_FV_ACTIVATED);
 }
 
-static void on_icon_view_item_activated(ExoIconView* iv, GtkTreePath* path, FmStandardView* fv)
+static void on_icon_view_item_activated(ExoIconView* iv, GtkTreePath* path, FmFolderStdView* fv)
 {
     _select_only_row_and_activate(fv, path);
 }
 
-static void on_tree_view_row_activated(GtkTreeView* tv, GtkTreePath* path, GtkTreeViewColumn* col, FmStandardView* fv)
+static void on_tree_view_row_activated(GtkTreeView* tv, GtkTreePath* path, GtkTreeViewColumn* col, FmFolderStdView* fv)
 {
     _select_only_row_and_activate(fv, path);
 }
 
-static void fm_standard_view_init(FmStandardView *self)
+static void fm_standard_view_init(FmFolderStdView *self)
 {
     gtk_scrolled_window_set_hadjustment((GtkScrolledWindow*)self, NULL);
     gtk_scrolled_window_set_vadjustment((GtkScrolledWindow*)self, NULL);
@@ -207,40 +225,14 @@ static void fm_standard_view_init(FmStandardView *self)
     self->updated_col = -1;
 }
 
-/**
- * fm_folder_view_new
- * @mode: initial mode of view
- *
- * Returns: a new #FmFolderView widget.
- *
- * Since: 0.1.0
- * Deprecated: 1.0.1: Use fm_standard_view_new() instead.
- */
-FmFolderView* fm_folder_view_new(guint mode)
+static FmFolderStdView* _fm_standard_view_new(FmStandardViewMode mode,
+                                              FmFolderViewUpdatePopup update_popup,
+                                              FmLaunchFolderFunc open_folders)
 {
-    return (FmFolderView*)fm_standard_view_new(mode, NULL, NULL);
-}
-
-/**
- * fm_standard_view_new
- * @mode: initial mode of view
- * @update_popup: (allow-none): callback to update context menu for files
- * @open_folders: (allow-none): callback to open folder on activation
- *
- * Creates new folder view.
- *
- * Returns: a new #FmStandardView widget.
- *
- * Since: 1.0.1
- */
-FmStandardView* fm_standard_view_new(FmStandardViewMode mode,
-                                     FmFolderViewUpdatePopup update_popup,
-                                     FmLaunchFolderFunc open_folders)
-{
-    FmStandardView* fv = (FmStandardView*)g_object_new(FM_STANDARD_VIEW_TYPE, NULL);
+    FmFolderStdView* fv = (FmFolderStdView*)g_object_new(FM_FOLDER_STD_VIEW_TYPE, NULL);
     AtkObject *obj = gtk_widget_get_accessible(GTK_WIDGET(fv));
 
-    fm_standard_view_set_mode(fv, mode);
+    _fm_standard_view_set_mode(fv, mode);
     fv->update_popup = update_popup;
     fv->open_folders = open_folders;
     atk_object_set_description(obj, _("View of folder contents"));
@@ -252,11 +244,11 @@ FmFolderView *_fm_standard_view_new_for_id(FmFolderView *old_fv, gint id,
                                            FmLaunchFolderFunc open_folders)
 {
     if (old_fv == NULL)
-        return (FmFolderView*)fm_standard_view_new(id, update_popup, open_folders);
-    if (FM_IS_STANDARD_VIEW(old_fv))
-        fm_standard_view_set_mode((FmStandardView*)old_fv, id);
+        return (FmFolderView*)_fm_standard_view_new(id, update_popup, open_folders);
+    if (FM_IS_FOLDER_STD_VIEW(old_fv))
+        _fm_standard_view_set_mode((FmFolderStdView*)old_fv, id);
     /* FIXME: support other sub-widgets */
-    return old_fv;
+    return g_object_ref(old_fv);
 }
 
 static void _reset_columns_widths(GtkTreeView* view)
@@ -274,27 +266,27 @@ static void _reset_columns_widths(GtkTreeView* view)
 }
 
 static void on_row_changed(GtkTreeModel *tree_model, GtkTreePath *path,
-                           GtkTreeIter *iter, FmStandardView* fv)
+                           GtkTreeIter *iter, FmFolderStdView* fv)
 {
     if(fv->mode == FM_FV_LIST_VIEW)
         _reset_columns_widths(GTK_TREE_VIEW(fv->view));
 }
 
 static void on_row_deleted(GtkTreeModel *tree_model, GtkTreePath  *path,
-                           FmStandardView* fv)
+                           FmFolderStdView* fv)
 {
     if(fv->mode == FM_FV_LIST_VIEW)
         _reset_columns_widths(GTK_TREE_VIEW(fv->view));
 }
 
 static void on_row_inserted(GtkTreeModel *tree_model, GtkTreePath *path,
-                            GtkTreeIter *iter, FmStandardView* fv)
+                            GtkTreeIter *iter, FmFolderStdView* fv)
 {
     if(fv->mode == FM_FV_LIST_VIEW)
         _reset_columns_widths(GTK_TREE_VIEW(fv->view));
 }
 
-static void unset_model(FmStandardView* fv)
+static void unset_model(FmFolderStdView* fv)
 {
     if(fv->model)
     {
@@ -308,13 +300,13 @@ static void unset_model(FmStandardView* fv)
     }
 }
 
-static void unset_view(FmStandardView* fv);
+static void unset_view(FmFolderStdView* fv);
 static void fm_standard_view_dispose(GObject *object)
 {
-    FmStandardView *self;
+    FmFolderStdView *self;
     g_return_if_fail(object != NULL);
-    g_return_if_fail(FM_IS_STANDARD_VIEW(object));
-    self = (FmStandardView*)object;
+    g_return_if_fail(FM_IS_FOLDER_STD_VIEW(object));
+    self = (FmFolderStdView*)object;
     /* g_debug("fm_standard_view_dispose: %p", self); */
 
     unset_model(self);
@@ -379,7 +371,7 @@ static void fm_standard_view_dispose(GObject *object)
     (* G_OBJECT_CLASS(fm_standard_view_parent_class)->dispose)(object);
 }
 
-static void set_icon_size(FmStandardView* fv, guint icon_size)
+static void set_icon_size(FmFolderStdView* fv, guint icon_size)
 {
     FmCellRendererPixbuf* render = fv->renderer_pixbuf;
 
@@ -398,7 +390,7 @@ static void set_icon_size(FmStandardView* fv, guint icon_size)
     }
 }
 
-static void on_big_icon_size_changed(FmConfig* cfg, FmStandardView* fv)
+static void on_big_icon_size_changed(FmConfig* cfg, FmFolderStdView* fv)
 {
     guint item_width = cfg->big_icon_size + 40;
     /* reset ExoIconView item text sizes */
@@ -406,12 +398,12 @@ static void on_big_icon_size_changed(FmConfig* cfg, FmStandardView* fv)
     set_icon_size(fv, cfg->big_icon_size);
 }
 
-static void on_small_icon_size_changed(FmConfig* cfg, FmStandardView* fv)
+static void on_small_icon_size_changed(FmConfig* cfg, FmFolderStdView* fv)
 {
     set_icon_size(fv, cfg->small_icon_size);
 }
 
-static void on_thumbnail_size_changed(FmConfig* cfg, FmStandardView* fv)
+static void on_thumbnail_size_changed(FmConfig* cfg, FmFolderStdView* fv)
 {
     guint item_width = MAX(cfg->thumbnail_size, 96);
     /* reset ExoIconView item text sizes */
@@ -421,7 +413,7 @@ static void on_thumbnail_size_changed(FmConfig* cfg, FmStandardView* fv)
     set_icon_size(fv, cfg->thumbnail_size);
 }
 
-static void on_show_full_names_changed(FmConfig* cfg, FmStandardView* fv)
+static void on_show_full_names_changed(FmConfig* cfg, FmFolderStdView* fv)
 {
     g_return_if_fail(fv->renderer_text);
     if(fv->mode == FM_FV_ICON_VIEW)
@@ -433,7 +425,7 @@ static void on_show_full_names_changed(FmConfig* cfg, FmStandardView* fv)
     /* FIXME: does it require redraw request? */
 }
 
-static GtkTreePath* get_drop_path_list_view(FmStandardView* fv, gint x, gint y)
+static GtkTreePath* get_drop_path_list_view(FmFolderStdView* fv, gint x, gint y)
 {
     GtkTreePath* tp = NULL;
     GtkTreeViewColumn* col;
@@ -453,7 +445,7 @@ static GtkTreePath* get_drop_path_list_view(FmStandardView* fv, gint x, gint y)
     return tp;
 }
 
-static GtkTreePath* get_drop_path_icon_view(FmStandardView* fv, gint x, gint y)
+static GtkTreePath* get_drop_path_icon_view(FmFolderStdView* fv, gint x, gint y)
 {
     GtkTreePath* tp;
 
@@ -467,7 +459,7 @@ static gboolean on_drag_motion(GtkWidget *dest_widget,
                                  gint x,
                                  gint y,
                                  guint time,
-                                 FmStandardView* fv)
+                                 FmFolderStdView* fv)
 {
     gboolean ret;
     GdkDragAction action = 0;
@@ -511,7 +503,7 @@ static gboolean on_drag_motion(GtkWidget *dest_widget,
     return ret;
 }
 
-static inline void create_icon_view(FmStandardView* fv, GList* sels)
+static inline void create_icon_view(FmFolderStdView* fv, GList* sels)
 {
     GList *l;
     GtkCellRenderer* render;
@@ -631,7 +623,7 @@ static void _update_width_sizing(GtkTreeViewColumn* col, gint width)
  * 2) on manual column resize the resized column will change; last column
  *    will change size too if horizontal scroll bar isn't visible */
 static void on_column_width_changed(GtkTreeViewColumn* col, GParamSpec *pspec,
-                                    FmStandardView* view)
+                                    FmFolderStdView* view)
 {
     FmFolderViewColumnInfo *info = g_object_get_qdata(G_OBJECT(col), fm_qdata_id);
     GList *cols = gtk_tree_view_get_columns(GTK_TREE_VIEW(view->view));
@@ -708,7 +700,7 @@ static void on_column_move_right(GtkMenuItem* menu_item, GtkTreeViewColumn* col)
     g_list_free(list);
 }
 
-static GtkTreeViewColumn* create_list_view_column(FmStandardView* fv, FmFolderViewColumnInfo *set);
+static GtkTreeViewColumn* create_list_view_column(FmFolderStdView* fv, FmFolderViewColumnInfo *set);
 
 static void on_column_add(GtkMenuItem* menu_item, GtkTreeViewColumn* col)
 {
@@ -716,10 +708,10 @@ static void on_column_add(GtkMenuItem* menu_item, GtkTreeViewColumn* col)
     GtkWidget *fv = gtk_widget_get_parent(view);
     GtkTreeViewColumn *new_col;
     FmFolderViewColumnInfo info;
-    g_return_if_fail(FM_IS_STANDARD_VIEW(fv));
+    g_return_if_fail(FM_IS_FOLDER_STD_VIEW(fv));
     memset(&info, 0, sizeof(info));
     info.col_id = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(menu_item), "col_id"));
-    new_col = create_list_view_column((FmStandardView*)fv, &info);
+    new_col = create_list_view_column((FmFolderStdView*)fv, &info);
     if(new_col) /* skip it if failed */
     {
         gtk_tree_view_move_column_after(GTK_TREE_VIEW(view), new_col, col);
@@ -746,8 +738,8 @@ static gboolean on_column_button_press_event(GtkWidget *button,
         GtkWidget* view = gtk_tree_view_column_get_tree_view(col);
         GtkWidget* fv = gtk_widget_get_parent(view);
         FmFolderViewColumnInfo* info = g_object_get_qdata(G_OBJECT(col), fm_qdata_id);
-        g_return_val_if_fail(FM_IS_STANDARD_VIEW(fv), FALSE);
-        return !fm_folder_model_col_is_sortable(FM_STANDARD_VIEW(fv)->model, info->col_id);
+        g_return_val_if_fail(FM_IS_FOLDER_STD_VIEW(fv), FALSE);
+        return !fm_folder_model_col_is_sortable(FM_FOLDER_STD_VIEW(fv)->model, info->col_id);
     }
     return FALSE;
 }
@@ -768,7 +760,7 @@ static gboolean on_column_button_released_event(GtkWidget *button, GdkEventButto
         FmFolderViewColumnInfo* info;
         guint i;
 
-        g_return_val_if_fail(FM_IS_STANDARD_VIEW(fv), FALSE);
+        g_return_val_if_fail(FM_IS_FOLDER_STD_VIEW(fv), FALSE);
 
         columns = gtk_tree_view_get_columns(GTK_TREE_VIEW(view));
         l = g_list_find(columns, col);
@@ -784,7 +776,7 @@ static gboolean on_column_button_released_event(GtkWidget *button, GdkEventButto
         g_signal_connect(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), NULL);
 
         info = g_object_get_qdata(G_OBJECT(col), fm_qdata_id);
-        label = fm_folder_model_col_get_title(FM_STANDARD_VIEW(fv)->model, info->col_id);
+        label = fm_folder_model_col_get_title(FM_FOLDER_STD_VIEW(fv)->model, info->col_id);
         menu_item_label = g_strdup_printf(_("_Hide %s"), label);
         menu_item = gtk_menu_item_new_with_mnemonic(menu_item_label);
         g_free(menu_item_label);
@@ -811,7 +803,7 @@ static gboolean on_column_button_released_event(GtkWidget *button, GdkEventButto
         menu_item_label = NULL; /* mark for below */
         for(i = 0; fm_folder_model_col_is_valid(i); i++)
         {
-            label = fm_folder_model_col_get_title(FM_STANDARD_VIEW(fv)->model, i);
+            label = fm_folder_model_col_get_title(FM_FOLDER_STD_VIEW(fv)->model, i);
             if(!label)
                 continue;
             for(ld = cols_list; ld; ld = ld->next)
@@ -848,13 +840,13 @@ static gboolean on_column_button_released_event(GtkWidget *button, GdkEventButto
         GtkWidget* view = gtk_tree_view_column_get_tree_view(col);
         GtkWidget* fv = gtk_widget_get_parent(view);
         FmFolderViewColumnInfo* info = g_object_get_qdata(G_OBJECT(col), fm_qdata_id);
-        g_return_val_if_fail(FM_IS_STANDARD_VIEW(fv), FALSE);
-        return !fm_folder_model_col_is_sortable(FM_STANDARD_VIEW(fv)->model, info->col_id);
+        g_return_val_if_fail(FM_IS_FOLDER_STD_VIEW(fv), FALSE);
+        return !fm_folder_model_col_is_sortable(FM_FOLDER_STD_VIEW(fv)->model, info->col_id);
     }
     return FALSE;
 }
 
-static GtkTreeViewColumn* create_list_view_column(FmStandardView* fv,
+static GtkTreeViewColumn* create_list_view_column(FmFolderStdView* fv,
                                                   FmFolderViewColumnInfo *set)
 {
     GtkTreeViewColumn* col;
@@ -937,7 +929,7 @@ static GtkTreeViewColumn* create_list_view_column(FmStandardView* fv,
     return col;
 }
 
-static void _check_tree_columns_defaults(FmStandardView* fv)
+static void _check_tree_columns_defaults(FmFolderStdView* fv)
 {
     const FmFolderViewColumnInfo cols[] = {
         {FM_FOLDER_MODEL_COL_NAME},
@@ -963,7 +955,7 @@ static void _check_tree_columns_defaults(FmStandardView* fv)
     g_slist_free(cols_list);
 }
 
-static inline void create_list_view(FmStandardView* fv, GList* sels)
+static inline void create_list_view(FmFolderStdView* fv, GList* sels)
 {
     GtkTreeSelection* ts;
     GList *l;
@@ -1001,7 +993,7 @@ static inline void create_list_view(FmStandardView* fv, GList* sels)
         gtk_tree_selection_select_path(ts, (GtkTreePath*)l->data);
 }
 
-static void unset_view(FmStandardView* fv)
+static void unset_view(FmFolderStdView* fv)
 {
     /* these signals connected by view creators */
     if(fv->mode == FM_FV_LIST_VIEW)
@@ -1088,33 +1080,7 @@ static void select_path_icon_view(FmFolderModel* model, GtkWidget* view, GtkTree
     }
 }
 
-/**
- * fm_folder_view_set_mode
- * @fv: a widget to apply
- * @mode: new mode of view
- *
- * Since: 0.1.0
- * Deprecated: 1.0.1: Use fm_standard_view_set_mode() instead.
- */
-void fm_folder_view_set_mode(FmFolderView* fv, guint mode)
-{
-    g_return_if_fail(FM_IS_STANDARD_VIEW(fv));
-
-    fm_standard_view_set_mode((FmStandardView*)fv, mode);
-}
-
-/**
- * fm_standard_view_set_mode
- * @fv: a widget to apply
- * @mode: new mode of view
- *
- * Before 1.0.1 this API had name fm_folder_view_set_mode.
- *
- * Changes current view mode for folder in @fv.
- *
- * Since: 0.1.0
- */
-void fm_standard_view_set_mode(FmStandardView* fv, FmStandardViewMode mode)
+static void _fm_standard_view_set_mode(FmFolderStdView* fv, FmStandardViewMode mode)
 {
     if( mode != fv->mode )
     {
@@ -1200,42 +1166,9 @@ void fm_standard_view_set_mode(FmStandardView* fv, FmStandardViewMode mode)
     }
 }
 
-/**
- * fm_folder_view_get_mode
- * @fv: a widget to inspect
- *
- * Returns: current mode of view.
- *
- * Since: 0.1.0
- * Deprecated: 1.0.1: Use fm_standard_view_get_mode() instead.
- */
-guint fm_folder_view_get_mode(FmFolderView* fv)
-{
-    g_return_val_if_fail(FM_IS_STANDARD_VIEW(fv), 0);
-
-    return ((FmStandardView*)fv)->mode;
-}
-
-/**
- * fm_standard_view_get_mode
- * @fv: a widget to inspect
- *
- * Retrieves current view mode for folder in @fv.
- *
- * Before 1.0.1 this API had name fm_folder_view_get_mode.
- *
- * Returns: current mode of view.
- *
- * Since: 0.1.0
- */
-FmStandardViewMode fm_standard_view_get_mode(FmStandardView* fv)
-{
-    return fv->mode;
-}
-
 static void fm_standard_view_set_selection_mode(FmFolderView* ffv, GtkSelectionMode mode)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     if(fv->sel_mode != mode)
     {
         fv->sel_mode = mode;
@@ -1258,24 +1191,24 @@ static void fm_standard_view_set_selection_mode(FmFolderView* ffv, GtkSelectionM
 
 static GtkSelectionMode fm_standard_view_get_selection_mode(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     return fv->sel_mode;
 }
 
 static void fm_standard_view_set_show_hidden(FmFolderView* ffv, gboolean show)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     fv->show_hidden = show;
 }
 
 static gboolean fm_standard_view_get_show_hidden(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     return fv->show_hidden;
 }
 
 /* returned list should be freed with g_list_free_full(list, gtk_tree_path_free) */
-static GList* fm_standard_view_get_selected_tree_paths(FmStandardView* fv)
+static GList* fm_standard_view_get_selected_tree_paths(FmFolderStdView* fv)
 {
     GList *sels = NULL;
     switch(fv->mode)
@@ -1296,7 +1229,7 @@ static GList* fm_standard_view_get_selected_tree_paths(FmStandardView* fv)
     return sels;
 }
 
-static inline FmFileInfoList* fm_standard_view_get_selected_files(FmStandardView* fv)
+static inline FmFileInfoList* fm_standard_view_get_selected_files(FmFolderStdView* fv)
 {
     /* don't generate the data again if we have it cached. */
     if(!fv->cached_selected_files)
@@ -1326,13 +1259,13 @@ static inline FmFileInfoList* fm_standard_view_get_selected_files(FmStandardView
 
 static FmFileInfoList* fm_standard_view_dup_selected_files(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     return fm_file_info_list_ref(fm_standard_view_get_selected_files(fv));
 }
 
 static FmPathList* fm_standard_view_dup_selected_file_paths(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     if(!fv->cached_selected_file_paths)
     {
         FmFileInfoList* files = fm_standard_view_get_selected_files(fv);
@@ -1346,7 +1279,7 @@ static FmPathList* fm_standard_view_dup_selected_file_paths(FmFolderView* ffv)
 
 static gint fm_standard_view_count_selected_files(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     gint count = 0;
     switch(fv->mode)
     {
@@ -1366,7 +1299,7 @@ static gint fm_standard_view_count_selected_files(FmFolderView* ffv)
     return count;
 }
 
-static gboolean on_btn_pressed(GtkWidget* view, GdkEventButton* evt, FmStandardView* fv)
+static gboolean on_btn_pressed(GtkWidget* view, GdkEventButton* evt, FmFolderStdView* fv)
 {
     GList* sels = NULL;
     FmFolderViewClickType type = 0;
@@ -1458,19 +1391,19 @@ void fm_folder_view_select_custom(FmFolderView* fv, GFunc filter, gpointer user_
 
 static void fm_standard_view_select_all(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     if(fv->select_all)
         fv->select_all(fv->view);
 }
 
 static void fm_standard_view_unselect_all(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     if(fv->unselect_all)
         fv->unselect_all(fv->view);
 }
 
-static void on_dnd_src_data_get(FmDndSrc* ds, FmStandardView* fv)
+static void on_dnd_src_data_get(FmDndSrc* ds, FmFolderStdView* fv)
 {
     FmFileInfoList* files = fm_standard_view_dup_selected_files(FM_FOLDER_VIEW(fv));
     fm_dnd_src_set_files(ds, files);
@@ -1478,7 +1411,7 @@ static void on_dnd_src_data_get(FmDndSrc* ds, FmStandardView* fv)
         fm_file_info_list_unref(files);
 }
 
-static gboolean on_sel_changed_real(FmStandardView* fv)
+static gboolean on_sel_changed_real(FmFolderStdView* fv)
 {
     /* clear cached selected files */
     if(fv->cached_selected_files)
@@ -1504,7 +1437,7 @@ static gboolean on_sel_changed_real(FmStandardView* fv)
  */
 static gboolean on_sel_changed_idle(gpointer user_data)
 {
-    FmStandardView* fv = (FmStandardView*)user_data;
+    FmFolderStdView* fv = (FmFolderStdView*)user_data;
     gboolean ret = FALSE;
 
     GDK_THREADS_ENTER();
@@ -1519,7 +1452,7 @@ _end:
     return ret;
 }
 
-static void on_sel_changed(GObject* obj, FmStandardView* fv)
+static void on_sel_changed(GObject* obj, FmFolderStdView* fv)
 {
     if(!fv->sel_changed_idle)
     {
@@ -1533,20 +1466,20 @@ static void on_sel_changed(GObject* obj, FmStandardView* fv)
 
 static void fm_standard_view_select_invert(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     if(fv->select_invert)
         fv->select_invert(fv->model, fv->view);
 }
 
 static FmFolder* fm_standard_view_get_folder(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     return fv->model ? fm_folder_model_get_folder(fv->model) : NULL;
 }
 
 static void fm_standard_view_select_file_path(FmFolderView* ffv, FmPath* path)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     FmFolder* folder = fm_standard_view_get_folder(ffv);
     FmPath* cwd = folder ? fm_folder_get_path(folder) : NULL;
     if(cwd && fm_path_equal(fm_path_get_parent(path), cwd))
@@ -1562,13 +1495,13 @@ static void fm_standard_view_select_file_path(FmFolderView* ffv, FmPath* path)
 static void fm_standard_view_get_custom_menu_callbacks(FmFolderView* ffv,
         FmFolderViewUpdatePopup *update_popup, FmLaunchFolderFunc *open_folders)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     *update_popup = fv->update_popup;
     *open_folders = fv->open_folders;
 }
 
 #if 0
-static gboolean fm_standard_view_is_loaded(FmStandardView* fv)
+static gboolean fm_standard_view_is_loaded(FmFolderStdView* fv)
 {
     return fv->folder && fm_folder_is_loaded(fv->folder);
 }
@@ -1576,13 +1509,13 @@ static gboolean fm_standard_view_is_loaded(FmStandardView* fv)
 
 static FmFolderModel* fm_standard_view_get_model(FmFolderView* ffv)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     return fv->model;
 }
 
 static void fm_standard_view_set_model(FmFolderView* ffv, FmFolderModel* model)
 {
-    FmStandardView* fv = FM_STANDARD_VIEW(ffv);
+    FmFolderStdView* fv = FM_FOLDER_STD_VIEW(ffv);
     int icon_size;
     unset_model(fv);
     switch(fv->mode)
@@ -1640,7 +1573,7 @@ typedef struct
 
 static gboolean _fm_standard_view_set_columns(FmFolderView* fv, const GSList* cols)
 {
-    FmStandardView* view;
+    FmFolderStdView* view;
     GtkTreeViewColumn *col, *last;
     FmFolderViewColumnInfo* info;
     _ColumnsCache* old_cols;
@@ -1648,9 +1581,9 @@ static gboolean _fm_standard_view_set_columns(FmFolderView* fv, const GSList* co
     GList *cols_list, *ld;
     guint i, n_cols;
 
-    if(!FM_IS_STANDARD_VIEW(fv))
+    if(!FM_IS_FOLDER_STD_VIEW(fv))
         return FALSE;
-    view = (FmStandardView*)fv;
+    view = (FmFolderStdView*)fv;
 
     if(view->mode != FM_FV_LIST_VIEW) /* other modes aren't supported now */
         return FALSE;
@@ -1722,13 +1655,13 @@ static gboolean _fm_standard_view_set_columns(FmFolderView* fv, const GSList* co
 
 static GSList* _fm_standard_view_get_columns(FmFolderView* fv)
 {
-    FmStandardView* view;
+    FmFolderStdView* view;
     GSList* list;
     GList *cols_list, *ld;
 
-    if(!FM_IS_STANDARD_VIEW(fv))
+    if(!FM_IS_FOLDER_STD_VIEW(fv))
         return NULL;
-    view = (FmStandardView*)fv;
+    view = (FmFolderStdView*)fv;
 
     if(view->mode != FM_FV_LIST_VIEW) /* other modes aren't supported now */
         return NULL;
@@ -1749,10 +1682,10 @@ static GSList* _fm_standard_view_get_columns(FmFolderView* fv)
 
 static gint _fm_standard_view_get_view_id(FmFolderView* fv)
 {
-    if(!FM_IS_STANDARD_VIEW(fv))
+    if(!FM_IS_FOLDER_STD_VIEW(fv))
         return -1;
 
-    return ((FmStandardView*)fv)->mode;
+    return ((FmFolderStdView*)fv)->mode;
 }
 
 static void fm_standard_view_view_init(FmFolderViewInterface* iface)
@@ -1775,61 +1708,4 @@ static void fm_standard_view_view_init(FmFolderViewInterface* iface)
     iface->set_columns = _fm_standard_view_set_columns;
     iface->get_columns = _fm_standard_view_get_columns;
     iface->get_view_id = _fm_standard_view_get_view_id;
-}
-
-typedef struct
-{
-    const char* name;
-    FmStandardViewMode mode;
-} _ModeNames;
-
-static const _ModeNames view_mode_names[] =
-{
-    { "icon", FM_FV_ICON_VIEW },
-    { "compact", FM_FV_COMPACT_VIEW },
-    { "thumbnail", FM_FV_THUMBNAIL_VIEW },
-    { "list", FM_FV_LIST_VIEW }
-};
-
-/**
- * fm_standard_view_mode_to_str
- * @mode: mode id
- *
- * Retrieves string name of rendering @mode. That name may be used for
- * config save or similar purposes. Returned data are owned by the
- * implementation and should be not freed by caller.
- *
- * Returns: name associated with @mode.
- *
- * Since: 1.0.2
- */
-const char* fm_standard_view_mode_to_str(FmStandardViewMode mode)
-{
-    guint i;
-
-    if(G_LIKELY(FM_STANDARD_VIEW_MODE_IS_VALID(mode)))
-        for(i = 0; i < G_N_ELEMENTS(view_mode_names); i++)
-            if(view_mode_names[i].mode == mode)
-                return view_mode_names[i].name;
-    return NULL;
-}
-
-/**
- * fm_standard_view_mode_from_str
- * @str: the name of mode
- *
- * Finds mode which have an associated name equal to @str.
- *
- * Returns: mode id or (FmStandardViewMode)-1 if no such mode exists.
- *
- * Since: 1.0.2
- */
-FmStandardViewMode fm_standard_view_mode_from_str(const char* str)
-{
-    guint i;
-
-    for(i = 0; i < G_N_ELEMENTS(view_mode_names); i++)
-        if(strcmp(str, view_mode_names[i].name) == 0)
-            return view_mode_names[i].mode;
-    return (FmStandardViewMode)-1;
 }

@@ -293,6 +293,44 @@ void _fm_folder_view_init(void);
 void _fm_folder_view_finalize(void);
 
 /* ----------------------------------------------------------------------
+ * Stuff from former fm-standard-view.h */
+
+/* FIXME: shouldn't it be marked deprecated? */
+
+#define FM_STANDARD_VIEW        FM_FOLDER_VIEW
+#define FM_IS_STANDARD_VIEW     FM_IS_FOLDER_VIEW
+
+/**
+ * FmStandardViewMode
+ * @FM_FV_ICON_VIEW: standard icon view
+ * @FM_FV_COMPACT_VIEW: view with small icons and text on right of them
+ * @FM_FV_THUMBNAIL_VIEW: view with big icons/thumbnails
+ * @FM_FV_LIST_VIEW: table-form view
+ */
+typedef enum
+{
+    FM_FV_ICON_VIEW,
+    FM_FV_COMPACT_VIEW,
+    FM_FV_THUMBNAIL_VIEW,
+    FM_FV_LIST_VIEW
+} FmStandardViewMode;
+
+#define FM_FOLDER_VIEW_MODE_IS_VALID(mode) ((guint)mode <= (guint)fm_folder_view_get_view_n_ids())
+#define FM_STANDARD_VIEW_MODE_IS_VALID(mode) FM_FOLDER_VIEW_MODE_IS_VALID(mode)
+
+#define FmStandardView          FmFolderView
+
+FmStandardView* fm_standard_view_new(FmStandardViewMode mode,
+                                     FmFolderViewUpdatePopup update_popup,
+                                     FmLaunchFolderFunc open_folders);
+
+void fm_standard_view_set_mode(FmStandardView* fv, FmStandardViewMode mode);
+FmStandardViewMode fm_standard_view_get_mode(FmStandardView* fv);
+
+const char* fm_standard_view_mode_to_str(FmStandardViewMode mode);
+FmStandardViewMode fm_standard_view_mode_from_str(const char* str);
+
+/* ----------------------------------------------------------------------
  * View modes switching stuff */
 
 /* new_for_id() used by sub-views */
@@ -301,6 +339,18 @@ FmFolderView *_fm_standard_view_new_for_id(FmFolderView *old_fv, gint id,
                                            FmLaunchFolderFunc open_folders);
 
 typedef struct _FmFolderViewModeInfo FmFolderViewModeInfo;
+/**
+ * FmFolderViewModeInfo:
+ * @new_for_id: the fm_folder_view_new_for_id() implementation for layout mode
+ * @name: short name for layout mode (e.g. "icon")
+ * @icon: icon name for layout mode to use in menus
+ * @description: short description for layout mode to use in menus (e.g. "_Icon View")
+ * @tooltip: detailed description for layout mode to use in tooltip
+ *
+ * Description of some folder view layout mode.
+ *
+ * Since: 1.2.0
+ */
 struct _FmFolderViewModeInfo {
     FmFolderView * (*new_for_id)(FmFolderView *old_fv, gint id,
                                  FmFolderViewUpdatePopup update_popup,

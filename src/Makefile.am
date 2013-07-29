@@ -195,7 +195,6 @@ libfmgtkincludedir = $(includedir)/@PACKAGE@-@FMLIBVER@
 libfmgtkinclude_HEADERS = \
 	fm-gtk.h \
 	gtk/fm-folder-view.h \
-	gtk/fm-standard-view.h \
 	gtk/fm-folder-model.h \
 	gtk/fm-places-view.h \
 	gtk/fm-places-model.h \
