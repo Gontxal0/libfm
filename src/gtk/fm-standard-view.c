@@ -247,6 +247,18 @@ FmStandardView* fm_standard_view_new(FmStandardViewMode mode,
     return fv;
 }
 
+FmFolderView *_fm_standard_view_new_for_id(FmFolderView *old_fv, gint id,
+                                           FmFolderViewUpdatePopup update_popup,
+                                           FmLaunchFolderFunc open_folders)
+{
+    if (old_fv == NULL)
+        return (FmFolderView*)fm_standard_view_new(id, update_popup, open_folders);
+    if (FM_IS_STANDARD_VIEW(old_fv))
+        fm_standard_view_set_mode((FmStandardView*)old_fv, id);
+    /* FIXME: support other sub-widgets */
+    return old_fv;
+}
+
 static void _reset_columns_widths(GtkTreeView* view)
 {
     GList* cols = gtk_tree_view_get_columns(view);
@@ -1735,6 +1747,14 @@ static GSList* _fm_standard_view_get_columns(FmFolderView* fv)
     return list;
 }
 
+static gint _fm_standard_view_get_view_id(FmFolderView* fv)
+{
+    if(!FM_IS_STANDARD_VIEW(fv))
+        return -1;
+
+    return ((FmStandardView*)fv)->mode;
+}
+
 static void fm_standard_view_view_init(FmFolderViewInterface* iface)
 {
     iface->set_sel_mode = fm_standard_view_set_selection_mode;
@@ -1754,6 +1774,7 @@ static void fm_standard_view_view_init(FmFolderViewInterface* iface)
     iface->get_custom_menu_callbacks = fm_standard_view_get_custom_menu_callbacks;
     iface->set_columns = _fm_standard_view_set_columns;
     iface->get_columns = _fm_standard_view_get_columns;
+    iface->get_view_id = _fm_standard_view_get_view_id;
 }
 
 typedef struct

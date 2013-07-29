@@ -109,6 +109,7 @@ typedef void (*FmFolderViewUpdatePopup)(FmFolderView* fv, GtkWindow* window,
  * @set_columns: (since 1.2.0) VTable func, see fm_folder_view_set_columns()
  * @get_columns: (since 1.2.0) VTable func, see fm_folder_view_get_columns()
  * @get_custom_menu_callbacks: function to retrieve callbacks for popup menu setup
+ * @get_view_id: (since 1.2.0) VTable func, see fm_folder_view_get_view_id()
  */
 struct _FmFolderViewInterface
 {
@@ -154,6 +155,7 @@ struct _FmFolderViewInterface
 
     gboolean (*set_columns)(FmFolderView* fv, const GSList* cols);
     GSList* (*get_columns)(FmFolderView* fv);
+    gint (*get_view_id)(FmFolderView* fv);
 
     /* for implementation internal usage */
     void (*get_custom_menu_callbacks)(FmFolderView* fv, FmFolderViewUpdatePopup*,
@@ -289,6 +291,41 @@ extern FmContextMenuSchemeAddonInit fm_module_init_gtk_menu_scheme;
 
 void _fm_folder_view_init(void);
 void _fm_folder_view_finalize(void);
+
+/* ----------------------------------------------------------------------
+ * View modes switching stuff */
+
+/* new_for_id() used by sub-views */
+FmFolderView *_fm_standard_view_new_for_id(FmFolderView *old_fv, gint id,
+                                           FmFolderViewUpdatePopup update_popup,
+                                           FmLaunchFolderFunc open_folders);
+
+typedef struct _FmFolderViewModeInfo FmFolderViewModeInfo;
+struct _FmFolderViewModeInfo {
+    FmFolderView * (*new_for_id)(FmFolderView *old_fv, gint id,
+                                 FmFolderViewUpdatePopup update_popup,
+                                 FmLaunchFolderFunc open_folders);
+    char *name;
+    char *icon;
+    char *description;
+    char *tooltip;
+    //char *shortkey;
+};
+
+gint fm_folder_view_get_view_n_ids(void);
+gint fm_folder_view_get_view_id(FmFolderView *fv);
+gint fm_folder_view_get_view_id_by_name(const char *name);
+FmFolderView *fm_folder_view_new_for_id(FmFolderView *old_fv, gint id,
+                                        FmFolderViewUpdatePopup update_popup,
+                                        FmLaunchFolderFunc open_folders);
+const char *fm_folder_view_get_view_id_name(gint id);
+const char *fm_folder_view_get_view_id_description(gint id);
+const char *fm_folder_view_get_view_id_tooltip(gint id);
+const char *fm_folder_view_get_view_id_icon(gint id);
+//const char *fm_folder_view_get_view_id_shortkey(gint id);
+
+/* extension */
+//gint fm_folder_view_add_view_mode(const char *name, FmFolderViewModeInfo *init);
 
 G_END_DECLS
 

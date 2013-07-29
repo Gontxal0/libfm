@@ -1916,3 +1916,78 @@ void _fm_folder_view_finalize(void)
     }
     g_list_free(list);
 }
+
+/* FIXME: allow extension of the table not hardcoding it */
+static const FmFolderViewModeInfo _standard_view_modes[] = {
+    { _fm_standard_view_new_for_id, "icon", NULL, N_("_Icon View"), NULL },
+    { _fm_standard_view_new_for_id, "compact", NULL, N_("_Thumbnail View"), NULL },
+    { _fm_standard_view_new_for_id, "thumbnail", NULL, N_("_Compact View"), NULL },
+    { _fm_standard_view_new_for_id, "list", NULL, N_("Detailed _List View"), NULL }
+};
+
+gint fm_folder_view_get_view_n_ids(void)
+{
+    return (gint)G_N_ELEMENTS(_standard_view_modes);
+}
+
+gint fm_folder_view_get_view_id(FmFolderView *fv)
+{
+    FmFolderViewInterface* iface;
+
+    g_return_val_if_fail(FM_IS_FOLDER_VIEW(fv), -1);
+
+    iface = FM_FOLDER_VIEW_GET_IFACE(fv);
+
+    if(iface->get_view_id)
+        return iface->get_view_id(fv);
+    return -1;
+}
+
+gint fm_folder_view_get_view_id_by_name(const char *name)
+{
+    gint i;
+
+    if (name == NULL)
+        return -1;
+    for (i = 0; i < (gint)G_N_ELEMENTS(_standard_view_modes); i++)
+        if (strcmp(_standard_view_modes[i].name, name) == 0)
+            return i;
+    return -1;
+}
+
+FmFolderView *fm_folder_view_new_for_id(FmFolderView *old_fv, gint id,
+                                        FmFolderViewUpdatePopup update_popup,
+                                        FmLaunchFolderFunc open_folders)
+{
+    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
+        return NULL;
+    return _standard_view_modes[id].new_for_id(old_fv, id, update_popup, open_folders);
+}
+
+const char *fm_folder_view_get_view_id_name(gint id)
+{
+    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
+        return NULL;
+    return _standard_view_modes[id].name;
+}
+
+const char *fm_folder_view_get_view_id_description(gint id)
+{
+    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
+        return NULL;
+    return _standard_view_modes[id].description;
+}
+
+const char *fm_folder_view_get_view_id_tooltip(gint id)
+{
+    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
+        return NULL;
+    return _standard_view_modes[id].tooltip;
+}
+
+const char *fm_folder_view_get_view_id_icon(gint id)
+{
+    if (id < 0 || id >= (gint)G_N_ELEMENTS(_standard_view_modes))
+        return NULL;
+    return _standard_view_modes[id].icon;
+}
