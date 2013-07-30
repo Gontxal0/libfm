@@ -800,6 +800,11 @@ void fm_folder_view_select_file_path(FmFolderView* fv, FmPath* path)
     FM_FOLDER_VIEW_GET_IFACE(fv)->select_file_path(fv, path);
 }
 
+/* TODO: select files by custom func, not yet implemented */
+void fm_folder_view_select_custom(FmFolderView* fv, GFunc filter, gpointer user_data)
+{
+}
+
 /**
  * fm_folder_view_select_file_paths
  * @fv: a widget to apply
@@ -1919,10 +1924,10 @@ void _fm_folder_view_finalize(void)
 
 /* FIXME: allow extension of the table not hardcoding it */
 static const FmFolderViewModeInfo _standard_view_modes[] = {
-    { _fm_standard_view_new_for_id, "icon", NULL, N_("_Icon View"), NULL },
-    { _fm_standard_view_new_for_id, "compact", NULL, N_("_Thumbnail View"), NULL },
-    { _fm_standard_view_new_for_id, "thumbnail", NULL, N_("_Compact View"), NULL },
-    { _fm_standard_view_new_for_id, "list", NULL, N_("Detailed _List View"), NULL }
+    { _fm_folder_icon_view_new_for_id, "icon", NULL, N_("_Icon View"), NULL },
+    { _fm_folder_icon_view_new_for_id, "compact", NULL, N_("_Thumbnail View"), NULL },
+    { _fm_folder_icon_view_new_for_id, "thumbnail", NULL, N_("_Compact View"), NULL },
+    { _fm_folder_list_view_new_for_id, "list", NULL, N_("Detailed _List View"), NULL }
 };
 
 /**

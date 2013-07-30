@@ -539,28 +539,6 @@ fm_folder_get_type
 </SECTION>
 
 <SECTION>
-<FILE>fm-standard-view</FILE>
-<TITLE>FmStandardView</TITLE>
-FmStandardView
-FmStandardViewClass
-FmStandardViewMode
-fm_standard_view_get_mode
-fm_standard_view_mode_from_str
-fm_standard_view_mode_to_str
-fm_standard_view_new
-fm_standard_view_set_mode
-<SUBSECTION Standard>
-FM_FOLDER_VIEW_MODE_IS_VALID
-FM_IS_STANDARD_VIEW
-FM_IS_STANDARD_VIEW_CLASS
-FM_STANDARD_VIEW
-FM_STANDARD_VIEW_CLASS
-FM_STANDARD_VIEW_MODE_IS_VALID
-FM_STANDARD_VIEW_TYPE
-fm_standard_view_get_type
-</SECTION>
-
-<SECTION>
 <FILE>fm-folder-model</FILE>
 <TITLE>FmFolderModel</TITLE>
 FM_FOLDER_MODEL_COL_DEFAULT
@@ -635,6 +613,8 @@ FmFolderViewColumnInfo
 FmFolderViewInterface
 FmFolderViewModeInfo
 FmFolderViewUpdatePopup
+FmStandardView
+FmStandardViewMode
 fm_folder_view_add_popup
 fm_folder_view_bounce_action
 fm_folder_view_columns_changed
@@ -676,11 +656,19 @@ fm_folder_view_set_show_hidden
 fm_folder_view_sort
 fm_folder_view_unselect_all
 fm_module_init_gtk_menu_scheme
+fm_standard_view_get_mode
+fm_standard_view_mode_from_str
+fm_standard_view_mode_to_str
+fm_standard_view_new
+fm_standard_view_set_mode
 <SUBSECTION Standard>
 FM_FOLDER_VIEW
 FM_FOLDER_VIEW_CLICK_TYPE_IS_VALID
 FM_FOLDER_VIEW_GET_IFACE
+FM_FOLDER_VIEW_MODE_IS_VALID
 FM_IS_FOLDER_VIEW
+FM_IS_STANDARD_VIEW
+FM_STANDARD_VIEW
 FM_TYPE_FOLDER_VIEW
 fm_folder_view_get_type
 </SECTION>

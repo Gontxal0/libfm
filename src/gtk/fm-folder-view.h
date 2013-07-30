@@ -334,9 +334,12 @@ FmStandardViewMode fm_standard_view_mode_from_str(const char* str);
  * View modes switching stuff */
 
 /* new_for_id() used by sub-views */
-FmFolderView *_fm_standard_view_new_for_id(FmFolderView *old_fv, gint id,
-                                           FmFolderViewUpdatePopup update_popup,
-                                           FmLaunchFolderFunc open_folders);
+FmFolderView *_fm_folder_icon_view_new_for_id(FmFolderView *old_fv, gint id,
+                                              FmFolderViewUpdatePopup update_popup,
+                                              FmLaunchFolderFunc open_folders);
+FmFolderView *_fm_folder_list_view_new_for_id(FmFolderView *old_fv, gint id,
+                                              FmFolderViewUpdatePopup update_popup,
+                                              FmLaunchFolderFunc open_folders);
 
 typedef struct _FmFolderViewModeInfo FmFolderViewModeInfo;
 /**

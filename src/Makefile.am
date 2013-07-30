@@ -123,7 +123,8 @@ libfm_gtk_SOURCES = \
 	$(gtk_compat_SOURCES) \
 	$(exo_SOURCES) \
 	gtk/fm-folder-view.c \
-	gtk/fm-standard-view.c \
+	gtk/fm-folder-icon-view.c \
+	gtk/fm-folder-list-view.c \
 	gtk/fm-folder-model.c \
 	gtk/fm-places-view.c \
 	gtk/fm-places-model.c \
