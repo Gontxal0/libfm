@@ -102,6 +102,7 @@ struct _FmSearchVFile
 
     char *path; /* full search path */
     GFile *current; /* last scanned directory */
+    GSList *found_paths; /* GFile list of dirs where files were found */
 };
 
 struct _FmSearchVFileClass
@@ -120,6 +121,8 @@ static void fm_search_job_match_folder(FmVfsSearchEnumerator * priv,
                                        GCancellable *cancellable,
                                        GError **error);
 static void parse_search_uri(FmVfsSearchEnumerator* priv, const char* uri_str);
+static gboolean _search_add_monitor(gpointer monitor, GFile *search, GFile *dir,
+                                    GCancellable *cancellable, GError **error);
 
 
 /* ---- Directory iterator ---- */
@@ -216,6 +219,28 @@ static void _fm_vfs_search_enumerator_dispose(GObject *object)
     G_OBJECT_CLASS(fm_vfs_search_enumerator_parent_class)->dispose(object);
 }
 
+/* global monitors list and lock for it */
+static GSList *monitors = NULL;
+G_LOCK_DEFINE(monitors);
+
+static void _fm_search_set_found(GFile *file, GCancellable *cancellable)
+{
+    FmSearchVFile *container = FM_SEARCH_VFILE(file);
+    GSList *l;
+
+    /* check if it is already there */
+    for (l = container->found_paths; l; l = l->next)
+        if (g_file_equal(l->data, container->current))
+            return;
+    /* not found so add it, prepending as it might be tested on next file */
+    container->found_paths = g_slist_prepend(container->found_paths,
+                                             g_object_ref(container->current));
+    G_LOCK(monitors);
+    for (l = monitors; l; l = l->next)
+        _search_add_monitor(l->data, file, container->current, cancellable, NULL);
+    G_UNLOCK(monitors);
+}
+
 static GFileInfo *_fm_vfs_search_enumerator_next_file(GFileEnumerator *enumerator,
                                                       GCancellable *cancellable,
                                                       GError **error)
@@ -270,6 +295,8 @@ static GFileInfo *_fm_vfs_search_enumerator_next_file(GFileEnumerator *enumerato
                                         cancellable, &err))
             {
                 /* g_debug("found matched: %s", g_file_info_get_name(file_info)); */
+                _fm_search_set_found(g_file_enumerator_get_container(enumerator),
+                                     cancellable);
                 return file_info;
             }
 
@@ -327,7 +354,6 @@ static void fm_vfs_search_enumerator_class_init(FmVfsSearchEnumeratorClass *klas
 
   enumerator_class->next_file = _fm_vfs_search_enumerator_next_file;
   enumerator_class->close_fn = _fm_vfs_search_enumerator_close;
-  
 }
 
 static void fm_vfs_search_enumerator_init(FmVfsSearchEnumerator *enumerator)
@@ -891,6 +917,7 @@ static void fm_vfs_search_file_finalize(GObject *object)
     g_free(item->path);
     if(item->current)
         g_object_unref(item->current);
+    g_slist_free_full(item->found_paths, g_object_unref);
 
     G_OBJECT_CLASS(fm_vfs_search_file_parent_class)->finalize(object);
 }
@@ -1219,13 +1246,138 @@ static gboolean _fm_vfs_search_move(GFile *source,
     return FALSE;
 }
 
+/* ---- FmSearchVFileMonitor class ---- */
+#define FM_TYPE_SEARCH_VFILE_MONITOR   (fm_vfs_search_file_monitor_get_type())
+#define FM_SEARCH_VFILE_MONITOR(o)     (G_TYPE_CHECK_INSTANCE_CAST((o), \
+                                        FM_TYPE_SEARCH_VFILE_MONITOR, FmSearchVFileMonitor))
+
+typedef struct _FmSearchVFileMonitor      FmSearchVFileMonitor;
+typedef struct _FmSearchVFileMonitorClass FmSearchVFileMonitorClass;
+
+static GType fm_vfs_search_file_monitor_get_type  (void);
+static void on_changed(GFileMonitor *monitor, GFile *file, GFile *other_file,
+                       GFileMonitorEvent event_type, FmSearchVFileMonitor *mon);
+
+struct _FmSearchVFileMonitor
+{
+    GFileMonitor parent_object;
+    FmSearchVFile *file;
+    GSList *mons; /* element-type GFileMonitor */
+    gboolean stopped;
+};
+
+struct _FmSearchVFileMonitorClass
+{
+    GFileMonitorClass parent_class;
+};
+
+G_DEFINE_TYPE(FmSearchVFileMonitor, fm_vfs_search_file_monitor, G_TYPE_FILE_MONITOR);
+
+static void fm_vfs_search_file_monitor_finalize(GObject *object)
+{
+    FmSearchVFileMonitor *mon = FM_SEARCH_VFILE_MONITOR(object);
+    GSList *l;
+
+    for (l = mon->mons; l; l = l->next)
+    {
+        g_signal_handlers_disconnect_by_func(l->data, on_changed, mon);
+        g_object_unref(l->data);
+    }
+    g_slist_free(mon->mons);
+    G_LOCK(monitors);
+    monitors = g_slist_remove(monitors, mon);
+    G_UNLOCK(monitors);
+    g_object_unref(mon->file);
+
+    G_OBJECT_CLASS(fm_vfs_search_file_monitor_parent_class)->finalize(object);
+}
+
+static gboolean fm_vfs_search_file_monitor_cancel(GFileMonitor *monitor)
+{
+    FmSearchVFileMonitor *mon = FM_SEARCH_VFILE_MONITOR(monitor);
+    GSList *l;
+
+    if (mon->stopped) /* already cancelled */
+        return TRUE;
+    for (l = mon->mons; l; l = l->next)
+        g_signal_handlers_disconnect_by_func(l->data, on_changed, mon);
+    mon->stopped = TRUE;
+    return TRUE;
+}
+
+static void fm_vfs_search_file_monitor_class_init(FmSearchVFileMonitorClass *klass)
+{
+    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+    GFileMonitorClass *gfilemon_class = G_FILE_MONITOR_CLASS (klass);
+
+    gobject_class->finalize = fm_vfs_search_file_monitor_finalize;
+    gfilemon_class->cancel = fm_vfs_search_file_monitor_cancel;
+}
+
+static void fm_vfs_search_file_monitor_init(FmSearchVFileMonitor *item)
+{
+    /* nothing */
+}
+
+static FmSearchVFileMonitor *_fm_search_vfile_monitor_new(void)
+{
+    return (FmSearchVFileMonitor*)g_object_new(FM_TYPE_SEARCH_VFILE_MONITOR, NULL);
+}
+
+static void on_changed(GFileMonitor *monitor, GFile *file, GFile *other_file,
+                       GFileMonitorEvent event_type, FmSearchVFileMonitor *mon)
+{
+    if (mon->stopped) /* stray event? */
+        return;
+    if (event_type != G_FILE_MONITOR_EVENT_CHANGED /*  ignore other events! */
+        && event_type != G_FILE_MONITOR_EVENT_DELETED)
+        return;
+    /* just forward the event */
+    g_file_monitor_emit_event(G_FILE_MONITOR(mon), file, other_file, event_type);
+}
+
+static gboolean _search_add_monitor(gpointer monitor, GFile *search, GFile *dir,
+                                    GCancellable *cancellable, GError **error)
+{
+    FmSearchVFileMonitor *mon = (FmSearchVFileMonitor*)monitor;
+    GFileMonitor *gmon;
+
+    if (!g_file_equal((GFile*)mon->file, search))
+        return TRUE; /* it is not for us */
+    gmon = g_file_monitor_directory(dir, G_FILE_MONITOR_NONE, cancellable, error);
+    if (gmon)
+    {
+        g_signal_connect(gmon, "changed", G_CALLBACK(on_changed), mon);
+        mon->mons = g_slist_prepend(mon->mons, gmon);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 static GFileMonitor *_fm_vfs_search_monitor_dir(GFile *file,
                                                 GFileMonitorFlags flags,
                                                 GCancellable *cancellable,
                                                 GError **error)
 {
-    ERROR_UNSUPPORTED(error);
-    return NULL;
+    FmSearchVFileMonitor *mon = _fm_search_vfile_monitor_new();
+    FmSearchVFile *svf = FM_SEARCH_VFILE(file);
+    GSList *l;
+
+    /* g_debug("_fm_vfs_search_monitor_dir"); */
+    mon->file = g_object_ref(svf);
+    for (l = svf->found_paths; l; l = l->next)
+    {
+        if (g_cancellable_set_error_if_cancelled(cancellable, error))
+        {
+            g_object_unref(mon);
+            return NULL;
+        }
+        _search_add_monitor(mon, file, l->data, cancellable, NULL);
+    }
+    G_LOCK(monitors);
+    monitors = g_slist_prepend(monitors, mon);
+    G_UNLOCK(monitors);
+    return (GFileMonitor*)mon;
 }
 
 static GFileMonitor *_fm_vfs_search_monitor_file(GFile *file,
